@@ -62,6 +62,17 @@
     let currentTurn = null;   // quiz
     let voteTurn = null;      // voti
     let myPick = null;
+    let timerInterval = null;
+
+    function startTimer(seconds) {
+      stopTimer();
+      if (!seconds) return;
+      let remaining = seconds;
+      const tick = () => { const e = document.getElementById("timer"); if (e) e.textContent = "⏱ " + Math.max(0, remaining) + "s"; if (remaining <= 0) { stopTimer(); return; } remaining--; };
+      tick();
+      timerInterval = setInterval(tick, 1000);
+    }
+    function stopTimer() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } }
 
     document.getElementById("enter").onclick = connect;
 
@@ -113,8 +124,10 @@
       setGame(`<div class="muted">Domanda ${turn.index} / ${turn.total}</div>
         <div class="qtitle">${escape(turn.prompt.title)}</div>
         <div class="opts">${opts}</div>
+        <div class="muted" id="timer"></div>
         <div class="muted" id="status">Tocca una risposta.</div>`);
       game.querySelectorAll(".opt").forEach((b) => (b.onclick = () => pick(b.dataset.id)));
+      if (turn.locked) stopTimer(); else startTimer(turn.timerSeconds);
     }
     function pick(id) {
       myPick = id;
@@ -123,6 +136,7 @@
       setStatus("Risposta inviata ✓ (puoi cambiarla finché è aperta)");
     }
     function showReveal(correct) {
+      stopTimer();
       game.querySelectorAll(".opt").forEach((b) => {
         b.disabled = true;
         if (correct.includes(b.dataset.id)) b.classList.add("correct");
@@ -144,11 +158,13 @@
         <div class="subject">${escape(turn.competitorName)}</div>
         ${crits}
         <button class="primary" id="sendVote">Invia voto</button>
+        <div class="muted" id="timer"></div>
         <div class="muted" id="status">Regola i cursori e invia.</div>`);
       game.querySelectorAll('input[type="range"]').forEach((r) => {
         r.oninput = () => { document.getElementById("val-" + r.dataset.id).textContent = Number(r.value).toFixed(1); };
       });
       document.getElementById("sendVote").onclick = sendVote;
+      if (turn.locked) stopTimer(); else startTimer(turn.timerSeconds);
     }
     function sendVote() {
       const values = {};
@@ -157,16 +173,18 @@
       setStatus("Voto inviato ✓ (puoi rivotare finché è aperto)");
     }
     function voteRegistered() {
+      stopTimer();
       game.querySelectorAll("input, button").forEach((el) => (el.disabled = true));
       setStatus("Voto registrato. In attesa della prossima prova…");
     }
 
     // --- comune ---
     function lockChoices() {
+      stopTimer();
       game.querySelectorAll(".opt, input, #sendVote").forEach((el) => (el.disabled = true));
       setStatus("Chiuso. In attesa dei risultati…");
     }
-    function thanks() { setGame(`<div class="big">Grazie per aver partecipato! 🎉</div>`); }
+    function thanks() { stopTimer(); setGame(`<div class="big">Grazie per aver partecipato! 🎉</div>`); }
     function setStatus(t) { const s = document.getElementById("status"); if (s) s.textContent = t; }
     function setGame(html) { game.innerHTML = html; }
     function escape(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }

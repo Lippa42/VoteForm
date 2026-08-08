@@ -104,6 +104,7 @@ sealed interface ServerState {
         val scaleStep: Double,
         val index: Int,
         val total: Int,
+        val timerSeconds: Int? = null,
         val locked: Boolean = false,
     ) : ServerState
 

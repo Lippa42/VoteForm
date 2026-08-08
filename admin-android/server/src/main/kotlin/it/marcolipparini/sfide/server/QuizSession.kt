@@ -11,6 +11,12 @@ import it.marcolipparini.sfide.engine.protocol.PlayerInfo
 import it.marcolipparini.sfide.engine.protocol.PublicOption
 import it.marcolipparini.sfide.engine.protocol.PublicPrompt
 import it.marcolipparini.sfide.engine.protocol.ServerState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
@@ -39,6 +45,8 @@ class QuizSession(override val room: RoomDefinition) : GameSession {
 
     private val mutex = Mutex()
     private val connections = ConcurrentHashMap<String, Connection>()
+    private val timerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var timerJob: Job? = null
 
     private data class Player(val id: String, var name: String, var score: Double = 0.0)
 
@@ -109,6 +117,8 @@ class QuizSession(override val room: RoomDefinition) : GameSession {
     // ---- Controlli admin (guidano la macchina a stati) ----------------------
 
     override suspend fun next() {
+        timerJob?.cancel()
+        var scheduleId: String? = null
         val msgs = mutex.withLock {
             if (index + 1 >= quiz.questions.size) {
                 phase = RoomPhase.FINISHED
@@ -118,13 +128,16 @@ class QuizSession(override val room: RoomDefinition) : GameSession {
                 answers.clear()
                 lastCorrect = emptyList()
                 phase = RoomPhase.INPUT
+                scheduleId = question?.id
                 listOfNotNull(turnState(), progressState())
             }
         }
         msgs.forEach { broadcast(it) }
+        scheduleId?.let { scheduleAutoLock(quiz.answerTimeSeconds, it) }
     }
 
     override suspend fun lock() {
+        timerJob?.cancel()
         val msg = mutex.withLock {
             if (phase != RoomPhase.INPUT) return
             phase = RoomPhase.LOCKED
@@ -133,7 +146,28 @@ class QuizSession(override val room: RoomDefinition) : GameSession {
         broadcast(msg)
     }
 
+    /** Chiusura automatica allo scadere del tempo (se il turno è ancora quello). */
+    private fun scheduleAutoLock(seconds: Int, turnId: String) {
+        timerJob?.cancel()
+        if (seconds <= 0) return
+        timerJob = timerScope.launch {
+            delay(seconds * 1000L)
+            autoLock(turnId)
+        }
+    }
+
+    private suspend fun autoLock(turnId: String) {
+        val msg = mutex.withLock {
+            if (phase != RoomPhase.INPUT) return
+            if ((question?.id ?: "") != turnId) return
+            phase = RoomPhase.LOCKED
+            turnState(locked = true)
+        } ?: return
+        broadcast(msg)
+    }
+
     override suspend fun reveal() {
+        timerJob?.cancel()
         val msgs = mutex.withLock {
             val q = question ?: return
             if (phase != RoomPhase.INPUT && phase != RoomPhase.LOCKED) return

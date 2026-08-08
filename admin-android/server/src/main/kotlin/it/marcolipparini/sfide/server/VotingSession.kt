@@ -13,6 +13,12 @@ import it.marcolipparini.sfide.engine.protocol.ClientIntent
 import it.marcolipparini.sfide.engine.protocol.ClientRole
 import it.marcolipparini.sfide.engine.protocol.ServerState
 import it.marcolipparini.sfide.engine.protocol.VoteCriterionView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
@@ -41,6 +47,8 @@ class VotingSession(override val room: RoomDefinition) : GameSession {
 
     private val mutex = Mutex()
     private val connections = ConcurrentHashMap<String, Connection>()
+    private val timerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var timerJob: Job? = null
     private val voters = LinkedHashSet<String>()
     private val votes = HashMap<String, Map<String, Double>>() // voterId -> criterionId→valore
     private val totals = LinkedHashMap<String, Double>().apply {
@@ -107,6 +115,8 @@ class VotingSession(override val room: RoomDefinition) : GameSession {
     // ---- Controlli admin ----------------------------------------------------
 
     override suspend fun next() {
+        timerJob?.cancel()
+        var scheduleId: String? = null
         val msgs = mutex.withLock {
             if (index + 1 >= subjects.size) {
                 phase = RoomPhase.FINISHED
@@ -119,13 +129,16 @@ class VotingSession(override val room: RoomDefinition) : GameSession {
                 index++
                 votes.clear()
                 phase = RoomPhase.INPUT
+                scheduleId = subject?.let { turnId(it) }
                 listOfNotNull(voteTurn(), progressState())
             }
         }
         msgs.forEach { broadcast(it) }
+        scheduleId?.let { scheduleAutoLock(voting.answerTimeSeconds, it) }
     }
 
     override suspend fun lock() {
+        timerJob?.cancel()
         val msg = mutex.withLock {
             if (phase != RoomPhase.INPUT) return
             phase = RoomPhase.LOCKED
@@ -134,7 +147,27 @@ class VotingSession(override val room: RoomDefinition) : GameSession {
         broadcast(msg)
     }
 
+    private fun scheduleAutoLock(seconds: Int, turnId: String) {
+        timerJob?.cancel()
+        if (seconds <= 0) return
+        timerJob = timerScope.launch {
+            delay(seconds * 1000L)
+            autoLock(turnId)
+        }
+    }
+
+    private suspend fun autoLock(turnId: String) {
+        val msg = mutex.withLock {
+            if (phase != RoomPhase.INPUT) return
+            if ((subject?.let { turnId(it) } ?: "") != turnId) return
+            phase = RoomPhase.LOCKED
+            voteTurn(locked = true)
+        } ?: return
+        broadcast(msg)
+    }
+
     override suspend fun reveal() {
+        timerJob?.cancel()
         val msg = mutex.withLock {
             val current = subject ?: return
             if (phase != RoomPhase.INPUT && phase != RoomPhase.LOCKED) return
@@ -214,6 +247,7 @@ class VotingSession(override val room: RoomDefinition) : GameSession {
             scaleStep = scale.step,
             index = index + 1,
             total = subjects.size,
+            timerSeconds = voting.answerTimeSeconds,
             locked = locked,
         )
     }

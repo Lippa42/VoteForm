@@ -27,6 +27,7 @@ sealed interface GameModeConfig {
     data class Voting(
         val prompts: List<VotingPrompt>,
         val voteScale: VoteScale = VoteScale(min = 1.0, max = 10.0, step = 0.5),
+        val answerTimeSeconds: Int = 30,
     ) : GameModeConfig
 
     /** Questionario: nessuna risposta "giusta", si aggregano gli esiti del pubblico. */

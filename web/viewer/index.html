@@ -63,6 +63,18 @@
     const competitors = new Map();  // id -> name           (voti)
     let mode = "quiz";
     let lastTurn = null;
+    let timerInterval = null;
+
+    function startTimer(seconds) {
+      stopTimer();
+      if (!seconds) return;
+      let remaining = seconds;
+      const el = () => document.getElementById("timer");
+      const tick = () => { const e = el(); if (e) e.textContent = "⏱ " + Math.max(0, remaining) + "s"; if (remaining <= 0) { stopTimer(); return; } remaining--; };
+      tick();
+      timerInterval = setInterval(tick, 1000);
+    }
+    function stopTimer() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } }
 
     const ws = new WebSocket(`ws://${location.host}/ws`);
     ws.onopen = () => ws.send(JSON.stringify({ type: "join", role: "VIEWER" }));
@@ -123,7 +135,8 @@
       main.innerHTML = `<div class="qcount">Domanda ${turn.index} / ${turn.total}</div>
         <div class="question">${escape(turn.prompt.title)}</div>
         <div class="options">${opts}</div>
-        ${revealed ? `<div class="progress">${quizTop()}</div>` : `<div class="progress" id="progress">Risposte: 0 / ${players.size}</div>`}`;
+        ${revealed ? `<div class="progress">${quizTop()}</div>` : `<div class="progress" id="progress">Risposte: 0 / ${players.size}</div><div class="progress" id="timer"></div>`}`;
+      if (revealed || turn.locked) stopTimer(); else startTimer(turn.timerSeconds);
     }
 
     function renderSubject(turn) {
@@ -134,10 +147,13 @@
         <div class="qcount">Sta votando</div>
         <div class="subject">${escape(turn.competitorName)}</div>
         <div class="criteria">${crits}</div>
-        <div class="progress" id="progress">Voti: 0 / —</div>`;
+        <div class="progress" id="progress">Voti: 0 / —</div>
+        <div class="progress" id="timer"></div>`;
+      if (turn.locked) stopTimer(); else startTimer(turn.timerSeconds);
     }
 
     function renderVotingReveal(msg) {
+      stopTimer();
       const rows = msg.standings.map((s) => rowHtml(s.rank, competitors.get(s.competitorId) ?? s.competitorId, s.points)).join("");
       const subject = competitors.get(msg.subjectId) ?? msg.subjectId;
       main.innerHTML = `<div class="qcount">${escape(subject)} ha totalizzato</div>
@@ -146,6 +162,7 @@
     }
 
     function renderStandings(title, rows) {
+      stopTimer();
       currentView = "standings";
       const html = (rows ?? []).map((r) => rowHtml(r.rank, r.name, r.points)).join("");
       main.innerHTML = `<div class="question">${title}</div><div class="standings">${html}</div>`;
