@@ -49,9 +49,15 @@ innestare dopo: indovina-il-numero, buzzer, disegna-e-indovina, scommesse a punt
 ## Motore di voto e punteggio
 
 Regole **componibili** (`ScoringRules`): media/mediana/pesata, scarta estremi, voti
-speciali con moltiplicatore, giuria+pubblico con pesi, no auto-voto, peso ridotto
-sull'avversario diretto, normalizzazione per giudice, reveal progressivo, tie-break
-in ordine.
+speciali con moltiplicatore, normalizzazione per giudice, reveal progressivo, tie-break
+in ordine. Inoltre:
+
+- **Elettorato** (`Electorate`): gruppi di votanti personalizzabili con peso (giuria,
+  pubblico, chef ospite…) e modalità di assegnazione (admin / self-select / tutti pubblico).
+- **Criteri di voto** (`VoteCriterion` su `VotingPrompt`): voto su più assi pesati
+  (es. Gusto ×2, Presentazione, Originalità).
+- **Eleggibilità** (`EligibilityRules`): matrice votante→bersaglio con peso, dal
+  "no auto-voto" fino a "il gruppo A non vota affatto il gruppo B" (peso 0.0).
 
 ## Formati e sorteggio (v1)
 

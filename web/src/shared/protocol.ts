@@ -14,7 +14,8 @@ export type ClientIntent =
       type: "cast_vote";
       turnId: string;
       targetId: string;
-      value: number;
+      // Voto per ciascun criterio: criterionId → valore.
+      values: Record<string, number>;
       specialVoteId?: string;
     }
   | { type: "buzz"; turnId: string }

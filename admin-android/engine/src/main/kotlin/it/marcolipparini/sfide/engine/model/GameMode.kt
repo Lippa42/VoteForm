@@ -66,6 +66,10 @@ data class VotingPrompt(
     val title: String,
     val description: String = "",
     val imageAssetId: String? = null,
+    /** Criteri di voto pesati (es. Gusto ×2, Presentazione, Originalità). */
+    val criteria: List<VoteCriterion> = listOf(
+        VoteCriterion(id = "overall", label = "Voto complessivo"),
+    ),
 )
 
 /** Scala di voto per le modalità a punteggio (es. da 1 a 10 con passo 0.5). */

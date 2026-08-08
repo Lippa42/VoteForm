@@ -13,14 +13,12 @@ data class ScoringRules(
     val aggregation: Aggregation = Aggregation.MEAN,
     /** Scarta il voto più alto e più basso prima di aggregare (stile giuria di gara). */
     val trimExtremes: Boolean = false,
-    /** Peso relativo di giuria e pubblico (verranno normalizzati). */
-    val juryPublicWeight: JuryPublicWeight = JuryPublicWeight(),
+    /** Chi vota e con quale peso (gruppi personalizzabili: giuria, pubblico, chef…). */
+    val electorate: Electorate = Electorate(),
+    /** Chi può votare chi, e con quale peso (incluso "A non vota affatto B"). */
+    val eligibility: EligibilityRules = EligibilityRules(),
     /** Voti speciali con moltiplicatore (es. giudice d'onore ×2, jolly una tantum). */
     val specialVotes: List<SpecialVote> = emptyList(),
-    /** Un concorrente non può votare sé stesso. */
-    val forbidSelfVote: Boolean = true,
-    /** Peso del voto verso l'avversario diretto (0..1, 1 = pieno). */
-    val directRivalWeight: Double = 1.0,
     /** Riscala i voti di ogni giudice per compensare severità/generosità. */
     val normalizePerJudge: Boolean = false,
     /** Media pesata sul numero di votanti/sfidanti. */
@@ -32,12 +30,6 @@ data class ScoringRules(
 
 @Serializable
 enum class Aggregation { MEAN, MEDIAN, WEIGHTED_MEAN }
-
-@Serializable
-data class JuryPublicWeight(
-    val jury: Double = 1.0,
-    val public: Double = 0.0,
-)
 
 @Serializable
 data class SpecialVote(

@@ -30,7 +30,8 @@ sealed interface ClientIntent {
     data class CastVote(
         val turnId: String,
         val targetId: String,
-        val value: Double,
+        /** Voto per ciascun criterio: criterionId → valore. */
+        val values: Map<String, Double>,
         val specialVoteId: String? = null,
     ) : ClientIntent
 
