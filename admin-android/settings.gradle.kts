@@ -19,10 +19,12 @@ rootProject.name = "sfide"
 // Modulo puro Kotlin/JVM: modello dati + motore voto (nessuna dipendenza Android).
 include(":engine")
 
-// Server Ktor (JVM). Gira su desktop per lo sviluppo e, in seguito, embedded
-// nell'app Android che fa da host.
+// Server Ktor (JVM). Gira su desktop per lo sviluppo ed è riusato embedded
+// dall'app Android che fa da host.
 include(":server")
 
-// Moduli previsti nelle prossime iterazioni:
+// App Android host: avvia il server embedded (foreground service) + regia Compose.
+include(":app")
+
+// Modulo previsto nelle prossime iterazioni:
 // include(":persistence")
-// include(":app")

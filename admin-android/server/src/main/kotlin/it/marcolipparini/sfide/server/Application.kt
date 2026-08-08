@@ -9,6 +9,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.http.content.staticFiles
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
@@ -22,53 +23,66 @@ import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.util.UUID
 
+const val DEFAULT_PORT = 8080
+
 fun main() {
-    val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
+    val port = System.getenv("PORT")?.toIntOrNull() ?: DEFAULT_PORT
     printBanner(port)
-    embeddedServer(CIO, port = port, host = "0.0.0.0") { sfideModule() }.start(wait = true)
+    embeddedServer(CIO, port = port, host = "0.0.0.0") { sfideModule(port = port) }.start(wait = true)
 }
 
-/** Modulo Ktor. Espone WebSocket, controlli admin, QR e i client web statici. */
-fun Application.sfideModule(session: QuizSession = QuizSession(SampleRooms.quizTournament())) {
-
+/**
+ * Modulo Ktor con l'API della stanza (WebSocket, regia, QR). Il serving dei client
+ * web statici è **iniettabile** ([staticRoutes]) così lo stesso modulo serve da
+ * filesystem sul desktop e dagli asset sull'app Android, senza duplicare la logica.
+ */
+fun Application.sfideModule(
+    session: QuizSession = QuizSession(SampleRooms.quizTournament()),
+    port: Int = DEFAULT_PORT,
+    staticRoutes: Route.() -> Unit = { fileStatic() },
+) {
     install(WebSockets)
-
     routing {
-        webSocket("/ws") {
-            val conn = Connection(UUID.randomUUID().toString()) { msg -> send(Frame.Text(msg)) }
-            session.addConnection(conn)
-            try {
-                for (frame in incoming) {
-                    if (frame is Frame.Text) session.onIntent(conn, frame.readText())
-                }
-            } finally {
-                session.removeConnection(conn.id)
-            }
-        }
-
-        // Controlli admin (nella fetta: guidano le fasi via HTTP; poi UI Compose).
-        post("/admin/next") { session.next(); call.respondText("ok") }
-        post("/admin/lock") { session.lock(); call.respondText("ok") }
-        post("/admin/reveal") { session.reveal(); call.respondText("ok") }
-        get("/admin") { call.respondText(adminHtml(), ContentType.Text.Html) }
-
-        get("/qr") {
-            val url = call.request.queryParameters["url"] ?: joinUrl()
-            call.respondText(QrSvg.svg(url), ContentType.Image.SVG)
-        }
-        get("/join-url") { call.respondText(joinUrl()) }
-
+        apiRoutes(session, port)
         get("/") { call.respondRedirect("/viewer/index.html") }
-
-        val webDir = resolveWebDir()
-        if (webDir != null) {
-            staticFiles("/", webDir)
-        }
+        staticRoutes()
     }
 }
 
+/** Rotte comuni a ogni host (desktop o Android). */
+fun Route.apiRoutes(session: QuizSession, port: Int = DEFAULT_PORT) {
+    webSocket("/ws") {
+        val conn = Connection(UUID.randomUUID().toString()) { msg -> send(Frame.Text(msg)) }
+        session.addConnection(conn)
+        try {
+            for (frame in incoming) {
+                if (frame is Frame.Text) session.onIntent(conn, frame.readText())
+            }
+        } finally {
+            session.removeConnection(conn.id)
+        }
+    }
+
+    post("/admin/next") { session.next(); call.respondText("ok") }
+    post("/admin/lock") { session.lock(); call.respondText("ok") }
+    post("/admin/reveal") { session.reveal(); call.respondText("ok") }
+    get("/admin") { call.respondText(adminHtml(), ContentType.Text.Html) }
+
+    get("/qr") {
+        val url = call.request.queryParameters["url"] ?: joinUrl(port)
+        call.respondText(QrSvg.svg(url), ContentType.Image.SVG)
+    }
+    get("/join-url") { call.respondText(joinUrl(port)) }
+}
+
+/** Serving statico da filesystem (desktop): cerca la cartella `web` del repo. */
+private fun Route.fileStatic() {
+    val webDir = resolveWebDir() ?: return
+    staticFiles("/", webDir)
+}
+
 /** URL che gli spettatori aprono (usato anche per il QR): punta all'IP di LAN. */
-private fun joinUrl(port: Int = System.getenv("PORT")?.toIntOrNull() ?: 8080): String =
+fun joinUrl(port: Int = DEFAULT_PORT): String =
     "http://${localIp()}:$port/spectator/index.html"
 
 private fun printBanner(port: Int) {

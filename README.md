@@ -38,7 +38,7 @@ admin-android/        app Kotlin + server Ktor embedded
   engine/             modello dati + motore voto (Kotlin puro, testabile)  ← implementato
   server/             Ktor: HTTP statico + WebSocket + stato di gioco       ← fetta quiz
   persistence/        Room DB, template di stanza, storico                  (da fare)
-  app/                Jetpack Compose: creazione stanza + regia             (da fare)
+  app/                app Android host: foreground service + regia Compose  ← implementato
 web/                  client (HTML/JS ora; Svelte + Vite in seguito)
   shared/             protocollo WS, tipi condivisi                         ← protocollo
   viewer/             vista TV                                              ← fetta quiz
@@ -67,13 +67,25 @@ Test automatici:
 ./gradlew :engine:test :server:test
 ```
 
-Lo stesso codice del server girerà in seguito embedded nell'app Android host.
+Lo stesso codice del server gira anche **embedded nell'app Android host**.
+
+## App Android host
+
+L'app `:app` avvia il server embedded (Ktor CIO) dentro un **foreground service**,
+serve i client web dagli **asset**, e offre la **regia in Compose** (PIN, QR,
+pulsanti Prossima/Chiudi/Svela). Richiede l'Android SDK (`compileSdk 35`,
+`build-tools 35.0.0`) e un `local.properties` con `sdk.dir`.
+
+```bash
+./gradlew :app:assembleDebug   # produce app/build/outputs/apk/debug/app-debug.apk
+```
 
 ## Stato
 
 - **Fatto e verificato**: modello dati (`engine`) con test; **fetta quiz end-to-end**
   (`server` Ktor + client `viewer`/`spectator`) con test d'integrazione e smoke test
-  su browser reale.
-- **Prossimo**: app Android (Compose + Ktor embedded) come host, persistenza (Room),
-  poi le altre modalità e la personalizzazione. Vedi
-  [`docs/architettura.md`](docs/architettura.md).
+  su browser reale; **app Android host** (`app`) che compila in APK, con i client web
+  impacchettati come asset.
+- **Prossimo (in ordine)**: modalità *Sfida a voti* end-to-end, poi persistenza
+  (Room) + creazione stanza, poi rifiniture (timer, animazioni, tema, sorteggio).
+  Vedi [`docs/architettura.md`](docs/architettura.md).
