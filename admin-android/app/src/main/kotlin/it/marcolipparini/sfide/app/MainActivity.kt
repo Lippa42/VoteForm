@@ -24,100 +24,88 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import it.marcolipparini.sfide.persistence.SfideStore
 import kotlinx.coroutines.launch
-
-private val Accent = Color(0xFFFF5A63)
-private val Bg = Color(0xFF0F1117)
-private val Ink = Color(0xFFECEEF5)
-private val InkSoft = Color(0xFFA9AEBF)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = Accent)) {
-                Surface(Modifier.fillMaxSize(), color = Bg) { HostScreen() }
+                Surface(Modifier.fillMaxSize(), color = Bg) { AppRoot() }
             }
         }
     }
 }
 
 @Composable
-private fun HostScreen() {
+private fun AppRoot() {
+    val ctx = LocalContext.current
+    val store = remember { SfideStore(ctx.applicationContext) }
+    val scope = rememberCoroutineScope()
+    val info by HostController.state.collectAsState()
+    var screen by remember { mutableStateOf("home") }
+
+    when {
+        info.running -> HostPanel()
+        screen == "builder" -> BuilderScreen(
+            onCancel = { screen = "home" },
+            onSaveTemplate = { room -> scope.launch { store.saveTemplate(room) }; screen = "home" },
+            onStart = { room -> HostService.startWith(ctx, room) },
+        )
+        else -> HomeScreen(
+            store = store,
+            onNew = { screen = "builder" },
+            onStart = { room -> HostService.startWith(ctx, room) },
+        )
+    }
+}
+
+@Composable
+private fun HostPanel() {
     val ctx = LocalContext.current
     val info by HostController.state.collectAsState()
     val scope = rememberCoroutineScope()
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("🎯 Sfide · Host", color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        if (info.mode.isNotEmpty()) Text("Modalità: ${info.mode}", color = InkSoft, fontSize = 12.sp)
 
-        if (!info.running) {
-            Text(
-                "Avvia l'host: il telefono diventa il server. Gli altri si collegano dal " +
-                    "browser sulla stessa rete WiFi, senza installare nulla.",
-                color = InkSoft,
-            )
-            Button(onClick = { HostService.start(ctx, HostService.MODE_QUIZ) }, modifier = Modifier.fillMaxWidth()) {
-                Text("Avvia Quiz")
-            }
-            Button(onClick = { HostService.start(ctx, HostService.MODE_VOTING) }, modifier = Modifier.fillMaxWidth()) {
-                Text("Avvia Sfida a voti")
-            }
-        } else {
-            if (info.mode.isNotEmpty()) Text("Modalità: ${info.mode}", color = InkSoft, fontSize = 12.sp)
-            Text("PIN", color = InkSoft, fontSize = 12.sp)
-            Text(info.pin, color = Accent, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+        Text("PIN", color = InkSoft, fontSize = 12.sp)
+        Text(info.pin, color = Accent, fontSize = 40.sp, fontWeight = FontWeight.Bold)
 
-            val qr = remember(info.ip, info.port, info.running) { QrBitmap.forJoin(info.port) }
-            qr?.let {
-                Image(
-                    bitmap = it.asImageBitmap(),
-                    contentDescription = "QR per entrare",
-                    modifier = Modifier.size(200.dp),
-                )
-            }
-
-            Text("Visualizzatore (TV)", color = InkSoft, fontSize = 12.sp)
-            Text("http://${info.ip}:${info.port}/viewer/index.html", color = Ink, fontFamily = FontFamily.Monospace)
-            Text("Spettatore", color = InkSoft, fontSize = 12.sp)
-            Text("http://${info.ip}:${info.port}/spectator/index.html", color = Ink, fontFamily = FontFamily.Monospace)
-
-            HorizontalDivider(color = Color(0xFF262A36))
-
-            Text("REGIA", color = InkSoft, fontSize = 12.sp)
-            val session = HostController.session
-            Button(onClick = { scope.launch { session?.next() } }, modifier = Modifier.fillMaxWidth()) {
-                Text("▶ Avanti")
-            }
-            Button(onClick = { scope.launch { session?.lock() } }, modifier = Modifier.fillMaxWidth()) {
-                Text("🔒 Chiudi")
-            }
-            Button(onClick = { scope.launch { session?.reveal() } }, modifier = Modifier.fillMaxWidth()) {
-                Text("🎉 Svela")
-            }
-
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { HostService.stop(ctx) }, modifier = Modifier.fillMaxWidth()) {
-                Text("Ferma la stanza")
-            }
+        val qr = remember(info.ip, info.port, info.running) { QrBitmap.forJoin(info.port) }
+        qr?.let {
+            Image(bitmap = it.asImageBitmap(), contentDescription = "QR per entrare", modifier = Modifier.size(200.dp))
         }
+
+        Text("Visualizzatore (TV)", color = InkSoft, fontSize = 12.sp)
+        Text("http://${info.ip}:${info.port}/viewer/index.html", color = Ink, fontFamily = FontFamily.Monospace)
+        Text("Spettatore", color = InkSoft, fontSize = 12.sp)
+        Text("http://${info.ip}:${info.port}/spectator/index.html", color = Ink, fontFamily = FontFamily.Monospace)
+
+        HorizontalDivider(color = Line)
+        Text("REGIA", color = InkSoft, fontSize = 12.sp)
+        val session = HostController.session
+        Button(onClick = { scope.launch { session?.next() } }, modifier = Modifier.fillMaxWidth()) { Text("▶ Avanti") }
+        Button(onClick = { scope.launch { session?.lock() } }, modifier = Modifier.fillMaxWidth()) { Text("🔒 Chiudi") }
+        Button(onClick = { scope.launch { session?.reveal() } }, modifier = Modifier.fillMaxWidth()) { Text("🎉 Svela") }
+
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = { HostService.stop(ctx) }, modifier = Modifier.fillMaxWidth()) { Text("Ferma la stanza") }
     }
 }

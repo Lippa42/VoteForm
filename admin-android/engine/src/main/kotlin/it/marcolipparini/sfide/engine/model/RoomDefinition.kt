@@ -28,4 +28,6 @@ data class RoomMeta(
     /** PIN che gli spettatori inseriscono per entrare nella stanza. */
     val pin: String,
     val maxParticipants: Int = 15,
+    /** Identificatore stabile della stanza/template (vuoto per le stanze usa-e-getta). */
+    val id: String = "",
 )

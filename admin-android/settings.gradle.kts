@@ -26,5 +26,5 @@ include(":server")
 // App Android host: avvia il server embedded (foreground service) + regia Compose.
 include(":app")
 
-// Modulo previsto nelle prossime iterazioni:
-// include(":persistence")
+// Persistenza locale (Room DB): template di stanza + storico partite.
+include(":persistence")

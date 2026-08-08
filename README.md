@@ -37,8 +37,8 @@ Kotlin — affidabile, testabile e non manipolabile dai client.
 admin-android/        app Kotlin + server Ktor embedded
   engine/             modello dati + motore voto (Kotlin puro, testabile)  ← implementato
   server/             Ktor: HTTP statico + WebSocket + stato di gioco       ← fetta quiz
-  persistence/        Room DB, template di stanza, storico                  (da fare)
-  app/                app Android host: foreground service + regia Compose  ← implementato
+  persistence/        Room DB: template di stanza + storico partite         ← implementato
+  app/                app Android host: creazione stanza + regia Compose    ← implementato
 web/                  client (HTML/JS ora; Svelte + Vite in seguito)
   shared/             protocollo WS, tipi condivisi                         ← protocollo
   viewer/             vista TV                                              ← fetta quiz
@@ -89,7 +89,11 @@ pulsanti Prossima/Chiudi/Svela). Richiede l'Android SDK (`compileSdk 35`,
     `GameSession`, client `viewer`/`spectator` bimodali) con test d'integrazione e
     smoke test su browser reale;
   - **app Android host** (`app`) che compila in APK, avvia il server embedded in
-    foreground service, sceglie la modalità e offre la regia in Compose.
-- **Prossimo (in ordine)**: persistenza (Room) + creazione stanza dall'admin, poi
-  rifiniture (timer, animazioni, tema, sorteggio/bracket). Vedi
+    foreground service, e offre in Compose: **creazione stanza guidata** (Quiz o
+    Sfida a voti, con concorrenti, domande/opzioni o prove/criteri), **template
+    salvati** (Room DB) e **regia**.
+  - **persistenza** (`persistence`, Room DB): salvataggio dei template di stanza e
+    dello storico partite in locale.
+- **Prossimo (in ordine)**: rifiniture — timer visibile, animazioni, tema
+  personalizzabile, sorteggio/bracket sulla TV. Vedi
   [`docs/architettura.md`](docs/architettura.md).

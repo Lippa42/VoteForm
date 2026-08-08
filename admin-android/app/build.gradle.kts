@@ -63,6 +63,7 @@ tasks.named("preBuild") { dependsOn(copyWeb) }
 
 dependencies {
     implementation(project(":engine"))
+    implementation(project(":persistence"))
     implementation(project(":server")) {
         // Su Android usiamo il logging di sistema: niente logback (evita conflitti).
         exclude(group = "ch.qos.logback")
@@ -72,6 +73,7 @@ dependencies {
     implementation("io.ktor:ktor-server-cio:$ktorVersion")
     implementation("io.ktor:ktor-server-websockets:$ktorVersion")
     implementation("io.nayuki:qrcodegen:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
