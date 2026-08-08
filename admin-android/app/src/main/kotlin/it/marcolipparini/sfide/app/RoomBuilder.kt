@@ -16,11 +16,23 @@ import it.marcolipparini.sfide.engine.model.RoomDefinition
 import it.marcolipparini.sfide.engine.model.RoomMeta
 import it.marcolipparini.sfide.engine.model.ScoringRules
 import it.marcolipparini.sfide.engine.model.SpectatorInteraction
+import it.marcolipparini.sfide.engine.model.Theme
 import it.marcolipparini.sfide.engine.model.VoteCriterion
 import it.marcolipparini.sfide.engine.model.VotingPrompt
 import java.util.UUID
 
 enum class BuildMode { QUIZ, VOTING }
+
+/** Palette selezionabili nel Builder e applicate ai client. */
+data class Palette(val name: String, val primary: String, val background: String)
+
+val palettes = listOf(
+    Palette("Corallo", "#FF5A63", "#0F1117"),
+    Palette("Oceano", "#3A9FF5", "#0C1622"),
+    Palette("Foresta", "#2FBE93", "#0D1512"),
+    Palette("Ambra", "#F5B53A", "#17130B"),
+    Palette("Viola", "#A06BFF", "#140F1C"),
+)
 
 /** Bozze modificabili dal form (stato osservabile da Compose). */
 class CompetitorDraft(name: String = "") {
@@ -56,6 +68,7 @@ fun buildRoom(
     competitors: List<CompetitorDraft>,
     questions: List<QuestionDraft>,
     prompts: List<PromptDraft>,
+    palette: Palette = palettes.first(),
 ): RoomDefinition {
     val comps = competitors
         .filter { it.name.isNotBlank() }
@@ -65,6 +78,11 @@ fun buildRoom(
         title = title.ifBlank { "Stanza senza nome" },
         pin = pin.ifBlank { "0000" },
         id = UUID.randomUUID().toString(),
+    )
+    val theme = Theme(
+        paletteName = palette.name,
+        primaryColor = palette.primary,
+        backgroundColor = palette.background,
     )
 
     return when (mode) {
@@ -83,6 +101,7 @@ fun buildRoom(
                 },
             ),
             participants = participants,
+            theme = theme,
             format = FormatConfig.AllVsAll(),
             scoring = ScoringRules(),
             interaction = SpectatorInteraction(canAnswer = true, canVote = false),
@@ -102,6 +121,7 @@ fun buildRoom(
                 },
             ),
             participants = participants,
+            theme = theme,
             format = FormatConfig.AllVsAll(),
             scoring = ScoringRules(aggregation = Aggregation.WEIGHTED_MEAN),
             interaction = SpectatorInteraction(canAnswer = false, canVote = true, requireName = true),

@@ -97,6 +97,10 @@ pulsanti Prossima/Chiudi/Svela). Richiede l'Android SDK (`compileSdk 35`,
   - **timer**: countdown su TV e telefono con chiusura automatica allo scadere.
   - **torneo a eliminazione** (`engine/bracket` + `KnockoutSession`): sorteggio,
     incontri con avanzamento del vincitore e tabellone sulla TV.
-- **Prossimo**: rifiniture estetiche — animazioni (transizioni, classifica che si
-  riordina, reveal) e tema personalizzabile applicato ai client. Vedi
-  [`docs/architettura.md`](docs/architettura.md).
+  - **tema personalizzabile**: palette scelta nel Builder e applicata ai client web
+    (colori via variabili CSS dal tema della stanza).
+  - **animazioni**: entrate/transizioni di domande, opzioni, classifica e tabellone
+    (rispettando `prefers-reduced-motion`).
+- **Stato**: le funzioni previste (opzioni 1–4) sono complete. Prossimi possibili
+  passi in [`docs/architettura.md`](docs/architettura.md) (es. modalità Questionario
+  a sé, spettatori da remoto, Spotify).

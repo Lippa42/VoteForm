@@ -1,16 +1,22 @@
 package it.marcolipparini.sfide.app
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
@@ -43,8 +49,10 @@ fun BuilderScreen(
     val competitors = remember { mutableStateListOf(CompetitorDraft(), CompetitorDraft()) }
     val questions = remember { mutableStateListOf(QuestionDraft()) }
     val prompts = remember { mutableStateListOf(PromptDraft()) }
+    var paletteIndex by remember { mutableStateOf(0) }
 
-    fun current(): RoomDefinition = buildRoom(mode, title, pin, competitors, questions, prompts)
+    fun current(): RoomDefinition =
+        buildRoom(mode, title, pin, competitors, questions, prompts, palettes[paletteIndex])
 
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
@@ -63,6 +71,24 @@ fun BuilderScreen(
 
         Field(title, { title = it }, "Titolo")
         Field(pin, { pin = it }, "PIN")
+
+        SectionTitle("Tema")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            palettes.forEachIndexed { i, p ->
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color(android.graphics.Color.parseColor(p.primary)))
+                        .border(
+                            width = if (paletteIndex == i) 3.dp else 1.dp,
+                            color = if (paletteIndex == i) Ink else Line,
+                            shape = CircleShape,
+                        )
+                        .clickable { paletteIndex = i },
+                )
+            }
+        }
 
         SectionTitle("Concorrenti")
         competitors.forEachIndexed { i, c ->
