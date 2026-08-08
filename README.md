@@ -94,6 +94,9 @@ pulsanti Prossima/Chiudi/Svela). Richiede l'Android SDK (`compileSdk 35`,
     salvati** (Room DB) e **regia**.
   - **persistenza** (`persistence`, Room DB): salvataggio dei template di stanza e
     dello storico partite in locale.
-- **Prossimo (in ordine)**: rifiniture — timer visibile, animazioni, tema
-  personalizzabile, sorteggio/bracket sulla TV. Vedi
+  - **timer**: countdown su TV e telefono con chiusura automatica allo scadere.
+  - **torneo a eliminazione** (`engine/bracket` + `KnockoutSession`): sorteggio,
+    incontri con avanzamento del vincitore e tabellone sulla TV.
+- **Prossimo**: rifiniture estetiche — animazioni (transizioni, classifica che si
+  riordina, reveal) e tema personalizzabile applicato ai client. Vedi
   [`docs/architettura.md`](docs/architettura.md).

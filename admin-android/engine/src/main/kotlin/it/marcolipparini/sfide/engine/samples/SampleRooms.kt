@@ -85,4 +85,34 @@ object SampleRooms {
         ),
         interaction = SpectatorInteraction(canAnswer = false, canVote = true, requireName = true),
     )
+
+    /** Una sfida a voti in formato torneo a eliminazione diretta (4 squadre). */
+    fun cookingKnockout(): RoomDefinition = RoomDefinition(
+        meta = RoomMeta(title = "Torneo ai Fornelli", pin = "5555"),
+        mode = GameModeConfig.Voting(
+            prompts = listOf(
+                VotingPrompt(
+                    id = "p1",
+                    title = "Piatto della sfida",
+                    criteria = listOf(
+                        VoteCriterion(id = "gusto", label = "Gusto", weight = 2.0),
+                        VoteCriterion(id = "presentazione", label = "Presentazione", weight = 1.0),
+                    ),
+                ),
+            ),
+            voteScale = VoteScale(min = 1.0, max = 10.0, step = 0.5),
+        ),
+        participants = ParticipantsConfig(
+            kind = CompetitorKind.TEAMS,
+            competitors = listOf(
+                Competitor(id = "t1", name = "Team Basilico"),
+                Competitor(id = "t2", name = "Team Peperoncino"),
+                Competitor(id = "t3", name = "Team Zenzero"),
+                Competitor(id = "t4", name = "Team Curcuma"),
+            ),
+        ),
+        format = FormatConfig.Knockout(seeded = false),
+        scoring = ScoringRules(aggregation = Aggregation.WEIGHTED_MEAN),
+        interaction = SpectatorInteraction(canAnswer = false, canVote = true, requireName = true),
+    )
 }

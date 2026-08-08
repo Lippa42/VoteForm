@@ -27,10 +27,10 @@ const val DEFAULT_PORT = 8080
 
 fun main() {
     val port = System.getenv("PORT")?.toIntOrNull() ?: DEFAULT_PORT
-    val room = if (System.getenv("ROOM")?.lowercase() == "voting") {
-        SampleRooms.cookingVoting()
-    } else {
-        SampleRooms.quizTournament()
+    val room = when (System.getenv("ROOM")?.lowercase()) {
+        "voting" -> SampleRooms.cookingVoting()
+        "knockout" -> SampleRooms.cookingKnockout()
+        else -> SampleRooms.quizTournament()
     }
     printBanner(port)
     embeddedServer(CIO, port = port, host = "0.0.0.0") {

@@ -42,6 +42,13 @@
     .row .name { flex: 1; text-align: left; font-size: 1.2rem; }
     .row .pts { font-variant-numeric: tabular-nums; font-weight: 700; }
     .hint { color: #767c90; }
+    .bracket { display: flex; gap: 28px; align-items: center; justify-content: center; flex-wrap: wrap; }
+    .bround { display: flex; flex-direction: column; gap: 18px; }
+    .rlabel { font-size: .8rem; color: #767c90; text-transform: uppercase; letter-spacing: .12em; text-align: center; }
+    .match { background: #1e212b; border: 1px solid #262a36; border-radius: 12px; overflow: hidden; min-width: 220px; }
+    .slot { padding: 12px 16px; font-size: 1.15rem; border-bottom: 1px solid #262a36; }
+    .slot:last-child { border-bottom: none; }
+    .slot.win { color: #2fbe93; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -110,8 +117,32 @@
           if (msg.subjectId != null) renderVotingReveal(msg);
           else renderQuestion(lastTurn, true, msg.correctOptionIds);
           break;
+        case "bracket":
+          renderBracket(msg);
+          break;
       }
     }
+
+    function renderBracket(b) {
+      stopTimer();
+      currentView = "bracket";
+      const byRound = {};
+      b.matches.forEach((m) => { (byRound[m.round] ||= []).push(m); });
+      const cols = Object.keys(byRound).sort((x, y) => x - y).map((r) => {
+        const ms = byRound[r].map((m) => {
+          const aCls = m.winner && m.winner === m.slotA ? "slot win" : "slot";
+          const bCls = m.winner && m.winner === m.slotB ? "slot win" : "slot";
+          return `<div class="match"><div class="${aCls}">${cname(m.slotA)}</div><div class="${bCls}">${cname(m.slotB)}</div></div>`;
+        }).join("");
+        return `<div class="bround"><div class="rlabel">Turno ${r}</div>${ms}</div>`;
+      }).join("");
+      const head = b.champion
+        ? `<div class="qcount">Campione</div><div class="subject">🏆 ${cname(b.champion)}</div>`
+        : `<div class="qcount">Tabellone — sorteggio</div>`;
+      main.innerHTML = `${head}<div class="bracket">${cols}</div>`;
+    }
+
+    function cname(id) { return id ? escape(competitors.get(id) ?? id) : "—"; }
 
     let currentView = "lobby";
 

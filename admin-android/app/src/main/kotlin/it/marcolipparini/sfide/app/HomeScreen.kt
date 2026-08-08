@@ -53,6 +53,9 @@ fun HomeScreen(
         OutlinedButton(onClick = { onStart(SampleRooms.cookingVoting()) }, modifier = Modifier.fillMaxWidth()) {
             Text("Avvia Sfida a voti d'esempio")
         }
+        OutlinedButton(onClick = { onStart(SampleRooms.cookingKnockout()) }, modifier = Modifier.fillMaxWidth()) {
+            Text("Avvia Torneo d'esempio")
+        }
 
         HorizontalDivider(color = Line)
         Text("Le tue stanze salvate", color = InkSoft, fontSize = 12.sp)

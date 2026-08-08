@@ -1,8 +1,8 @@
 package it.marcolipparini.sfide.engine.protocol
 
+import it.marcolipparini.sfide.engine.bracket.BracketMatch
 import it.marcolipparini.sfide.engine.model.RoomDefinition
 import it.marcolipparini.sfide.engine.model.SelectionType
-import it.marcolipparini.sfide.engine.phase.Match
 import it.marcolipparini.sfide.engine.phase.RoomPhase
 import it.marcolipparini.sfide.engine.phase.Standing
 import kotlinx.serialization.SerialName
@@ -122,7 +122,8 @@ sealed interface ServerState {
     @Serializable
     @SerialName("bracket")
     data class Bracket(
-        val matches: List<Match>,
+        val matches: List<BracketMatch>,
+        val champion: String? = null,
         val nextMatchId: String? = null,
     ) : ServerState
 }

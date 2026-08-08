@@ -1,5 +1,6 @@
 package it.marcolipparini.sfide.server
 
+import it.marcolipparini.sfide.engine.model.FormatConfig
 import it.marcolipparini.sfide.engine.model.GameModeConfig
 import it.marcolipparini.sfide.engine.model.RoomDefinition
 import it.marcolipparini.sfide.engine.phase.RoomPhase
@@ -26,6 +27,7 @@ interface GameSession {
 /** Sceglie l'implementazione di sessione in base alla modalità della stanza. */
 fun sessionFor(room: RoomDefinition): GameSession = when (room.mode) {
     is GameModeConfig.Quiz -> QuizSession(room)
-    is GameModeConfig.Voting -> VotingSession(room)
+    is GameModeConfig.Voting ->
+        if (room.format is FormatConfig.Knockout) KnockoutSession(room) else VotingSession(room)
     is GameModeConfig.Questionnaire -> QuizSession(room) // TODO: QuestionnaireSession
 }
