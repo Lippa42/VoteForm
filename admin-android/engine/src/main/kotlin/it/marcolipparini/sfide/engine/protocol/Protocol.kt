@@ -89,12 +89,33 @@ sealed interface ServerState {
         val players: List<PlayerInfo>,
     ) : ServerState
 
+    /** Turno della modalità a voti: un concorrente in valutazione su più criteri. */
+    @Serializable
+    @SerialName("vote_turn")
+    data class VoteTurn(
+        val turnId: String,
+        val phase: RoomPhase,
+        val promptTitle: String,
+        val competitorId: String,
+        val competitorName: String,
+        val criteria: List<VoteCriterionView>,
+        val scaleMin: Double,
+        val scaleMax: Double,
+        val scaleStep: Double,
+        val index: Int,
+        val total: Int,
+        val locked: Boolean = false,
+    ) : ServerState
+
     @Serializable
     @SerialName("reveal")
     data class Reveal(
         val turnId: String,
         val standings: List<Standing>,
         val correctOptionIds: List<String> = emptyList(),
+        /** Concorrente appena valutato (modalità a voti): punteggio della prova. */
+        val subjectId: String? = null,
+        val subjectScore: Double? = null,
     ) : ServerState
 
     @Serializable
@@ -125,4 +146,12 @@ data class PlayerInfo(
     val id: String,
     val name: String,
     val score: Double = 0.0,
+)
+
+/** Criterio di voto esposto ai client (etichetta + peso), senza dettagli interni. */
+@Serializable
+data class VoteCriterionView(
+    val id: String,
+    val label: String,
+    val weight: Double,
 )

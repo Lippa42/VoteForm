@@ -27,8 +27,15 @@ const val DEFAULT_PORT = 8080
 
 fun main() {
     val port = System.getenv("PORT")?.toIntOrNull() ?: DEFAULT_PORT
+    val room = if (System.getenv("ROOM")?.lowercase() == "voting") {
+        SampleRooms.cookingVoting()
+    } else {
+        SampleRooms.quizTournament()
+    }
     printBanner(port)
-    embeddedServer(CIO, port = port, host = "0.0.0.0") { sfideModule(port = port) }.start(wait = true)
+    embeddedServer(CIO, port = port, host = "0.0.0.0") {
+        sfideModule(session = sessionFor(room), port = port)
+    }.start(wait = true)
 }
 
 /**
@@ -37,7 +44,7 @@ fun main() {
  * filesystem sul desktop e dagli asset sull'app Android, senza duplicare la logica.
  */
 fun Application.sfideModule(
-    session: QuizSession = QuizSession(SampleRooms.quizTournament()),
+    session: GameSession = sessionFor(SampleRooms.quizTournament()),
     port: Int = DEFAULT_PORT,
     staticRoutes: Route.() -> Unit = { fileStatic() },
 ) {
@@ -50,7 +57,7 @@ fun Application.sfideModule(
 }
 
 /** Rotte comuni a ogni host (desktop o Android). */
-fun Route.apiRoutes(session: QuizSession, port: Int = DEFAULT_PORT) {
+fun Route.apiRoutes(session: GameSession, port: Int = DEFAULT_PORT) {
     webSocket("/ws") {
         val conn = Connection(UUID.randomUUID().toString()) { msg -> send(Frame.Text(msg)) }
         session.addConnection(conn)

@@ -32,7 +32,7 @@ class Connection(
  *
  * Lo stesso codice girerà embedded nell'app Android host: non dipende da Android.
  */
-class QuizSession(val room: RoomDefinition) {
+class QuizSession(override val room: RoomDefinition) : GameSession {
 
     private val quiz = room.mode as? GameModeConfig.Quiz
         ?: error("QuizSession richiede una RoomDefinition in modalità Quiz")
@@ -48,7 +48,7 @@ class QuizSession(val room: RoomDefinition) {
     private var lastCorrect: List<String> = emptyList()
 
     @Volatile
-    var phase: RoomPhase = RoomPhase.LOBBY
+    override var phase: RoomPhase = RoomPhase.LOBBY
         private set
 
     private var index = -1
@@ -57,18 +57,18 @@ class QuizSession(val room: RoomDefinition) {
 
     // ---- Connessioni --------------------------------------------------------
 
-    suspend fun addConnection(conn: Connection) {
+    override suspend fun addConnection(conn: Connection) {
         connections[conn.id] = conn
         val msgs = mutex.withLock { initialMessages() }
         msgs.forEach { conn.send(encode(it)) }
     }
 
-    fun removeConnection(id: String) {
+    override fun removeConnection(id: String) {
         connections.remove(id)
         // Il giocatore resta nello scoreboard anche se si disconnette.
     }
 
-    suspend fun onIntent(conn: Connection, text: String) {
+    override suspend fun onIntent(conn: Connection, text: String) {
         val intent = runCatching { EngineJson.decodeFromString(ClientIntent.serializer(), text) }
             .getOrNull() ?: return
         when (intent) {
@@ -108,7 +108,7 @@ class QuizSession(val room: RoomDefinition) {
 
     // ---- Controlli admin (guidano la macchina a stati) ----------------------
 
-    suspend fun next() {
+    override suspend fun next() {
         val msgs = mutex.withLock {
             if (index + 1 >= quiz.questions.size) {
                 phase = RoomPhase.FINISHED
@@ -124,7 +124,7 @@ class QuizSession(val room: RoomDefinition) {
         msgs.forEach { broadcast(it) }
     }
 
-    suspend fun lock() {
+    override suspend fun lock() {
         val msg = mutex.withLock {
             if (phase != RoomPhase.INPUT) return
             phase = RoomPhase.LOCKED
@@ -133,7 +133,7 @@ class QuizSession(val room: RoomDefinition) {
         broadcast(msg)
     }
 
-    suspend fun reveal() {
+    override suspend fun reveal() {
         val msgs = mutex.withLock {
             val q = question ?: return
             if (phase != RoomPhase.INPUT && phase != RoomPhase.LOCKED) return

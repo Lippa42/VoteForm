@@ -23,16 +23,16 @@
     header .pin span { font-size: .8rem; color: #a9aebf; text-transform: uppercase; letter-spacing: .12em; }
     header .qr { width: 96px; height: 96px; background: #fff; border-radius: 10px; padding: 6px; }
     header .qr img { width: 100%; height: 100%; display: block; }
-    main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 28px; text-align: center; }
+    main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 24px; text-align: center; }
     .qcount { font-size: .9rem; color: #767c90; text-transform: uppercase; letter-spacing: .14em; }
-    .question { font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 800; max-width: 20ch; text-wrap: balance; }
+    .question { font-size: clamp(1.7rem, 4vw, 3rem); font-weight: 800; max-width: 22ch; text-wrap: balance; }
+    .subject { font-size: clamp(2rem, 5vw, 3.4rem); font-weight: 800; color: #ff5a63; }
     .options { display: grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap: 16px; width: min(900px, 90vw); }
-    .opt {
-      background: #1e212b; border: 2px solid #373c4c; border-radius: 16px;
-      padding: 20px 24px; font-size: 1.3rem; font-weight: 600; text-align: left;
-      transition: border-color .2s, background .2s;
-    }
+    .opt { background: #1e212b; border: 2px solid #373c4c; border-radius: 16px; padding: 20px 24px; font-size: 1.3rem; font-weight: 600; text-align: left; }
     .opt.correct { border-color: #2fbe93; background: #10261f; }
+    .criteria { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .crit { background: #1e212b; border: 1px solid #373c4c; border-radius: 999px; padding: 8px 16px; font-size: 1.05rem; }
+    .crit b { color: #ff5a63; }
     .progress { font-size: 1.1rem; color: #a9aebf; }
     .lobby { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; max-width: 900px; }
     .chip { background: #1e212b; border: 1px solid #373c4c; border-radius: 999px; padding: 8px 16px; font-size: 1rem; }
@@ -54,13 +54,15 @@
   </header>
   <main id="main">
     <div class="qcount">In attesa dei giocatori…</div>
-    <div class="lobby" id="lobby"></div>
     <div class="hint">Inquadra il QR o vai all'indirizzo mostrato per entrare.</div>
   </main>
 
   <script type="module">
     const main = document.getElementById("main");
-    const players = new Map(); // id -> {name, score}
+    const players = new Map();      // id -> {name, score}  (quiz)
+    const competitors = new Map();  // id -> name           (voti)
+    let mode = "quiz";
+    let lastTurn = null;
 
     const ws = new WebSocket(`ws://${location.host}/ws`);
     ws.onopen = () => ws.send(JSON.stringify({ type: "join", role: "VIEWER" }));
@@ -71,6 +73,10 @@
         case "snapshot":
           document.getElementById("pin").textContent = msg.room?.meta?.pin ?? "—";
           document.getElementById("qr").src = "/qr";
+          mode = msg.room?.mode?.type ?? "quiz";
+          competitors.clear();
+          (msg.room?.participants?.competitors ?? []).forEach((c) => competitors.set(c.id, c.name));
+          renderLobby();
           break;
         case "players":
           players.clear();
@@ -78,28 +84,31 @@
           if (currentView === "lobby") renderLobby();
           break;
         case "turn":
-          if (msg.phase === "FINISHED") renderStandings("Classifica finale");
+          if (msg.phase === "FINISHED") renderStandings("Classifica finale", quizStandings());
           else renderQuestion(msg, false);
           break;
+        case "vote_turn":
+          if (msg.phase === "FINISHED") renderStandings("Classifica finale", null);
+          else renderSubject(msg);
+          break;
         case "progress":
-          const el = document.getElementById("progress");
-          if (el) el.textContent = `Risposte: ${msg.answered} / ${msg.total}`;
+          { const el = document.getElementById("progress"); if (el) el.textContent = `${mode === "voting" ? "Voti" : "Risposte"}: ${msg.answered} / ${msg.total}`; }
           break;
         case "reveal":
-          renderQuestion(lastTurn, true, msg.correctOptionIds);
+          if (msg.subjectId != null) renderVotingReveal(msg);
+          else renderQuestion(lastTurn, true, msg.correctOptionIds);
           break;
       }
     }
 
     let currentView = "lobby";
-    let lastTurn = null;
 
     function renderLobby() {
       currentView = "lobby";
-      const chips = [...players.values()].map((p) => `<div class="chip">${escape(p.name)}</div>`).join("");
-      main.innerHTML = `
-        <div class="qcount">${players.size ? "Giocatori in sala" : "In attesa dei giocatori…"}</div>
-        <div class="lobby">${chips}</div>
+      const list = mode === "voting" ? [...competitors.values()] : [...players.values()].map((p) => p.name);
+      const label = mode === "voting" ? (list.length ? "Concorrenti" : "In attesa…") : (list.length ? "Giocatori in sala" : "In attesa dei giocatori…");
+      const chips = list.map((n) => `<div class="chip">${escape(n)}</div>`).join("");
+      main.innerHTML = `<div class="qcount">${label}</div><div class="lobby">${chips}</div>
         <div class="hint">Inquadra il QR o vai all'indirizzo mostrato per entrare.</div>`;
     }
 
@@ -111,26 +120,45 @@
         const cls = revealed && correct.includes(o.id) ? "opt correct" : "opt";
         return `<div class="${cls}">${escape(o.text)}</div>`;
       }).join("");
-      main.innerHTML = `
-        <div class="qcount">Domanda ${turn.index} / ${turn.total}</div>
+      main.innerHTML = `<div class="qcount">Domanda ${turn.index} / ${turn.total}</div>
         <div class="question">${escape(turn.prompt.title)}</div>
         <div class="options">${opts}</div>
-        ${revealed
-          ? `<div class="progress">${topLine()}</div>`
-          : `<div class="progress" id="progress">Risposte: 0 / ${players.size}</div>`}`;
+        ${revealed ? `<div class="progress">${quizTop()}</div>` : `<div class="progress" id="progress">Risposte: 0 / ${players.size}</div>`}`;
     }
 
-    function renderStandings(title) {
+    function renderSubject(turn) {
+      currentView = "subject";
+      lastTurn = turn;
+      const crits = turn.criteria.map((c) => `<div class="crit">${escape(c.label)} <b>×${c.weight}</b></div>`).join("");
+      main.innerHTML = `<div class="qcount">Prova ${turn.index} / ${turn.total} · ${escape(turn.promptTitle)}</div>
+        <div class="qcount">Sta votando</div>
+        <div class="subject">${escape(turn.competitorName)}</div>
+        <div class="criteria">${crits}</div>
+        <div class="progress" id="progress">Voti: 0 / —</div>`;
+    }
+
+    function renderVotingReveal(msg) {
+      const rows = msg.standings.map((s) => rowHtml(s.rank, competitors.get(s.competitorId) ?? s.competitorId, s.points)).join("");
+      const subject = competitors.get(msg.subjectId) ?? msg.subjectId;
+      main.innerHTML = `<div class="qcount">${escape(subject)} ha totalizzato</div>
+        <div class="subject">${msg.subjectScore}</div>
+        <div class="standings">${rows}</div>`;
+    }
+
+    function renderStandings(title, rows) {
       currentView = "standings";
-      const sorted = [...players.values()].sort((a, b) => b.score - a.score);
-      const rows = sorted.map((p, i) => `
-        <div class="row"><div class="rank">${i + 1}</div>
-        <div class="name">${escape(p.name)}</div>
-        <div class="pts">${p.score} pt</div></div>`).join("");
-      main.innerHTML = `<div class="question">${title}</div><div class="standings">${rows}</div>`;
+      const html = (rows ?? []).map((r) => rowHtml(r.rank, r.name, r.points)).join("");
+      main.innerHTML = `<div class="question">${title}</div><div class="standings">${html}</div>`;
     }
 
-    function topLine() {
+    function rowHtml(rank, name, pts) {
+      return `<div class="row"><div class="rank">${rank}</div><div class="name">${escape(name)}</div><div class="pts">${pts} pt</div></div>`;
+    }
+
+    function quizStandings() {
+      return [...players.values()].sort((a, b) => b.score - a.score).map((p, i) => ({ rank: i + 1, name: p.name, points: p.score }));
+    }
+    function quizTop() {
       const top = [...players.values()].sort((a, b) => b.score - a.score)[0];
       return top ? `In testa: ${escape(top.name)} (${top.score} pt)` : "";
     }

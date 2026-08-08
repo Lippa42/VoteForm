@@ -75,10 +75,14 @@ private fun HostScreen() {
                     "browser sulla stessa rete WiFi, senza installare nulla.",
                 color = InkSoft,
             )
-            Button(onClick = { HostService.start(ctx) }, modifier = Modifier.fillMaxWidth()) {
-                Text("Avvia la stanza")
+            Button(onClick = { HostService.start(ctx, HostService.MODE_QUIZ) }, modifier = Modifier.fillMaxWidth()) {
+                Text("Avvia Quiz")
+            }
+            Button(onClick = { HostService.start(ctx, HostService.MODE_VOTING) }, modifier = Modifier.fillMaxWidth()) {
+                Text("Avvia Sfida a voti")
             }
         } else {
+            if (info.mode.isNotEmpty()) Text("Modalità: ${info.mode}", color = InkSoft, fontSize = 12.sp)
             Text("PIN", color = InkSoft, fontSize = 12.sp)
             Text(info.pin, color = Accent, fontSize = 40.sp, fontWeight = FontWeight.Bold)
 
@@ -101,13 +105,13 @@ private fun HostScreen() {
             Text("REGIA", color = InkSoft, fontSize = 12.sp)
             val session = HostController.session
             Button(onClick = { scope.launch { session?.next() } }, modifier = Modifier.fillMaxWidth()) {
-                Text("▶ Prossima domanda")
+                Text("▶ Avanti")
             }
             Button(onClick = { scope.launch { session?.lock() } }, modifier = Modifier.fillMaxWidth()) {
-                Text("🔒 Chiudi risposte")
+                Text("🔒 Chiudi")
             }
             Button(onClick = { scope.launch { session?.reveal() } }, modifier = Modifier.fillMaxWidth()) {
-                Text("🎉 Svela risultati")
+                Text("🎉 Svela")
             }
 
             Spacer(Modifier.height(8.dp))

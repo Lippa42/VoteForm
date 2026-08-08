@@ -13,23 +13,25 @@
       display: flex; flex-direction: column; padding: 20px; gap: 18px;
     }
     h1 { font-size: 1.3rem; margin: 0; color: #ff5a63; }
-    input {
+    input[type="text"], input[type="number"] {
       font-size: 1.1rem; padding: 14px; border-radius: 12px; border: 1px solid #373c4c;
       background: #1e212b; color: #eceef5; width: 100%;
     }
-    button {
-      font-size: 1.1rem; padding: 16px; border-radius: 14px; border: 1px solid #373c4c;
-      background: #1e212b; color: #eceef5; cursor: pointer; width: 100%;
-    }
+    button { font-size: 1.1rem; padding: 16px; border-radius: 14px; border: 1px solid #373c4c; background: #1e212b; color: #eceef5; cursor: pointer; width: 100%; }
     button.primary { background: #ff5a63; border-color: #ff5a63; color: #17020a; font-weight: 700; }
     button:disabled { opacity: .5; }
     .card { background: #16181f; border: 1px solid #262a36; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
     .qtitle { font-size: 1.3rem; font-weight: 700; text-wrap: balance; }
+    .subject { font-size: 1.5rem; font-weight: 800; color: #ff5a63; }
     .opts { display: flex; flex-direction: column; gap: 12px; }
     .opt { text-align: left; }
     .opt.picked { border-color: #ff5a63; }
     .opt.correct { border-color: #2fbe93; background: #10261f; }
     .opt.wrong { border-color: #e23744; }
+    .crit { display: flex; flex-direction: column; gap: 6px; }
+    .crit .lab { display: flex; justify-content: space-between; }
+    .crit .lab b { color: #ff5a63; font-variant-numeric: tabular-nums; }
+    input[type="range"] { width: 100%; accent-color: #ff5a63; }
     .muted { color: #a9aebf; font-size: .95rem; }
     .big { font-size: 2rem; font-weight: 800; text-align: center; }
     .center { text-align: center; }
@@ -41,8 +43,8 @@
 
   <div id="join" class="card">
     <div class="muted">Inserisci il tuo nome e il PIN mostrato sullo schermo.</div>
-    <input id="name" placeholder="Il tuo nome" autocomplete="off" />
-    <input id="pin" placeholder="PIN" inputmode="numeric" autocomplete="off" />
+    <input id="name" type="text" placeholder="Il tuo nome" autocomplete="off" />
+    <input id="pin" type="text" placeholder="PIN" inputmode="numeric" autocomplete="off" />
     <button class="primary" id="enter">Entra</button>
     <div class="muted" id="joinMsg"></div>
   </div>
@@ -57,7 +59,8 @@
     const game = document.getElementById("game");
     let ws = null;
     let myName = "";
-    let currentTurn = null;
+    let currentTurn = null;   // quiz
+    let voteTurn = null;      // voti
     let myPick = null;
 
     document.getElementById("enter").onclick = connect;
@@ -80,63 +83,93 @@
           if (msg.phase === "LOBBY") waiting();
           break;
         case "turn":
-          if (msg.phase === "FINISHED") { setGame(`<div class="big">Grazie per aver giocato! 🎉</div>`); break; }
+          if (msg.phase === "FINISHED") { thanks(); break; }
           currentTurn = msg;
-          if (msg.locked) lockQuestion();
+          if (msg.locked) lockChoices();
           else showQuestion(msg);
           break;
+        case "vote_turn":
+          if (msg.phase === "FINISHED") { thanks(); break; }
+          voteTurn = msg;
+          if (msg.locked) lockChoices();
+          else showVote(msg);
+          break;
         case "reveal":
-          showReveal(msg.correctOptionIds);
+          if (msg.subjectId != null) voteRegistered();
+          else showReveal(msg.correctOptionIds);
           break;
       }
     }
 
     function waiting() {
       setGame(`<div class="center"><div class="big">Ci sei! 👋</div>
-        <div class="muted">Ciao ${escape(myName)}, aspetta l'inizio della sfida…</div></div>`);
+        <div class="muted">Ciao ${escape(myName)}, aspetta l'inizio…</div></div>`);
     }
 
+    // --- Quiz ---
     function showQuestion(turn) {
       myPick = null;
-      const opts = turn.prompt.options.map(
-        (o) => `<button class="opt" data-id="${o.id}">${escape(o.text)}</button>`
-      ).join("");
+      const opts = turn.prompt.options.map((o) => `<button class="opt" data-id="${o.id}">${escape(o.text)}</button>`).join("");
       setGame(`<div class="muted">Domanda ${turn.index} / ${turn.total}</div>
         <div class="qtitle">${escape(turn.prompt.title)}</div>
         <div class="opts">${opts}</div>
         <div class="muted" id="status">Tocca una risposta.</div>`);
       game.querySelectorAll(".opt").forEach((b) => (b.onclick = () => pick(b.dataset.id)));
     }
-
     function pick(id) {
       myPick = id;
       ws.send(JSON.stringify({ type: "submit_answer", turnId: currentTurn.turnId, optionIds: [id] }));
       game.querySelectorAll(".opt").forEach((b) => b.classList.toggle("picked", b.dataset.id === id));
-      const s = document.getElementById("status");
-      if (s) s.textContent = "Risposta inviata ✓ (puoi cambiarla finché è aperta)";
+      setStatus("Risposta inviata ✓ (puoi cambiarla finché è aperta)");
     }
-
-    function lockQuestion() {
-      game.querySelectorAll(".opt").forEach((b) => (b.disabled = true));
-      const s = document.getElementById("status");
-      if (s) s.textContent = "Risposte chiuse. In attesa dei risultati…";
-    }
-
     function showReveal(correct) {
       game.querySelectorAll(".opt").forEach((b) => {
         b.disabled = true;
         if (correct.includes(b.dataset.id)) b.classList.add("correct");
         else if (b.dataset.id === myPick) b.classList.add("wrong");
       });
-      const right = myPick && correct.includes(myPick);
-      const s = document.getElementById("status");
-      if (s) s.textContent = myPick ? (right ? "Giusto! 🎉" : "Sbagliato 😅") : "Non hai risposto in tempo.";
+      setStatus(myPick ? (correct.includes(myPick) ? "Giusto! 🎉" : "Sbagliato 😅") : "Non hai risposto in tempo.");
     }
 
-    function setGame(html) { game.innerHTML = html; }
-    function escape(s) {
-      return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    // --- Voti ---
+    function showVote(turn) {
+      const crits = turn.criteria.map((c) => {
+        const mid = ((turn.scaleMin + turn.scaleMax) / 2).toFixed(1);
+        return `<div class="crit">
+          <div class="lab"><span>${escape(c.label)} <span class="muted">×${c.weight}</span></span><b id="val-${c.id}">${mid}</b></div>
+          <input type="range" data-id="${c.id}" min="${turn.scaleMin}" max="${turn.scaleMax}" step="${turn.scaleStep}" value="${mid}" />
+        </div>`;
+      }).join("");
+      setGame(`<div class="muted">Prova ${turn.index} / ${turn.total} · ${escape(turn.promptTitle)}</div>
+        <div class="subject">${escape(turn.competitorName)}</div>
+        ${crits}
+        <button class="primary" id="sendVote">Invia voto</button>
+        <div class="muted" id="status">Regola i cursori e invia.</div>`);
+      game.querySelectorAll('input[type="range"]').forEach((r) => {
+        r.oninput = () => { document.getElementById("val-" + r.dataset.id).textContent = Number(r.value).toFixed(1); };
+      });
+      document.getElementById("sendVote").onclick = sendVote;
     }
+    function sendVote() {
+      const values = {};
+      game.querySelectorAll('input[type="range"]').forEach((r) => { values[r.dataset.id] = Number(r.value); });
+      ws.send(JSON.stringify({ type: "cast_vote", turnId: voteTurn.turnId, targetId: voteTurn.competitorId, values }));
+      setStatus("Voto inviato ✓ (puoi rivotare finché è aperto)");
+    }
+    function voteRegistered() {
+      game.querySelectorAll("input, button").forEach((el) => (el.disabled = true));
+      setStatus("Voto registrato. In attesa della prossima prova…");
+    }
+
+    // --- comune ---
+    function lockChoices() {
+      game.querySelectorAll(".opt, input, #sendVote").forEach((el) => (el.disabled = true));
+      setStatus("Chiuso. In attesa dei risultati…");
+    }
+    function thanks() { setGame(`<div class="big">Grazie per aver partecipato! 🎉</div>`); }
+    function setStatus(t) { const s = document.getElementById("status"); if (s) s.textContent = t; }
+    function setGame(html) { game.innerHTML = html; }
+    function escape(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
   </script>
 </body>
 </html>

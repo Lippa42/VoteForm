@@ -52,7 +52,8 @@ docs/
 Serve un JDK 21. Dalla cartella `admin-android`:
 
 ```bash
-./gradlew :server:run          # avvia l'host sulla porta 8080
+./gradlew :server:run                 # Quiz (default) sulla porta 8080
+ROOM=voting ./gradlew :server:run     # Sfida a voti
 ```
 
 All'avvio la console stampa gli indirizzi. Poi, sulla stessa rete:
@@ -82,10 +83,13 @@ pulsanti Prossima/Chiudi/Svela). Richiede l'Android SDK (`compileSdk 35`,
 
 ## Stato
 
-- **Fatto e verificato**: modello dati (`engine`) con test; **fetta quiz end-to-end**
-  (`server` Ktor + client `viewer`/`spectator`) con test d'integrazione e smoke test
-  su browser reale; **app Android host** (`app`) che compila in APK, con i client web
-  impacchettati come asset.
-- **Prossimo (in ordine)**: modalità *Sfida a voti* end-to-end, poi persistenza
-  (Room) + creazione stanza, poi rifiniture (timer, animazioni, tema, sorteggio).
-  Vedi [`docs/architettura.md`](docs/architettura.md).
+- **Fatto e verificato**:
+  - modello dati (`engine`) con test;
+  - **Quiz** e **Sfida a voti** end-to-end (`server` Ktor, interfaccia comune
+    `GameSession`, client `viewer`/`spectator` bimodali) con test d'integrazione e
+    smoke test su browser reale;
+  - **app Android host** (`app`) che compila in APK, avvia il server embedded in
+    foreground service, sceglie la modalità e offre la regia in Compose.
+- **Prossimo (in ordine)**: persistenza (Room) + creazione stanza dall'admin, poi
+  rifiniture (timer, animazioni, tema, sorteggio/bracket). Vedi
+  [`docs/architettura.md`](docs/architettura.md).

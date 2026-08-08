@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import it.marcolipparini.sfide.engine.samples.SampleRooms
 
 /**
  * Foreground service che tiene vivo il server anche a schermo bloccato: è ciò che
@@ -22,14 +23,15 @@ class HostService : Service() {
             stopHost()
             return START_NOT_STICKY
         }
-        startHost()
+        startHost(intent?.getStringExtra(EXTRA_MODE) ?: MODE_QUIZ)
         return START_STICKY
     }
 
-    private fun startHost() {
+    private fun startHost(mode: String) {
         createChannel()
         startForeground(NOTIF_ID, buildNotification())
-        HostController.start(applicationContext)
+        val room = if (mode == MODE_VOTING) SampleRooms.cookingVoting() else SampleRooms.quizTournament()
+        HostController.start(applicationContext, room)
     }
 
     private fun stopHost() {
@@ -55,9 +57,12 @@ class HostService : Service() {
         private const val CHANNEL = "host"
         private const val NOTIF_ID = 1
         const val ACTION_STOP = "it.marcolipparini.sfide.STOP"
+        const val EXTRA_MODE = "mode"
+        const val MODE_QUIZ = "quiz"
+        const val MODE_VOTING = "voting"
 
-        fun start(context: Context) {
-            val intent = Intent(context, HostService::class.java)
+        fun start(context: Context, mode: String = MODE_QUIZ) {
+            val intent = Intent(context, HostService::class.java).putExtra(EXTRA_MODE, mode)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
