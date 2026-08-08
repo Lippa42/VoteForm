@@ -36,19 +36,44 @@ Kotlin — affidabile, testabile e non manipolabile dai client.
 ```
 admin-android/        app Kotlin + server Ktor embedded
   engine/             modello dati + motore voto (Kotlin puro, testabile)  ← implementato
-  server/             Ktor: HTTP statico + WebSocket                        (da fare)
+  server/             Ktor: HTTP statico + WebSocket + stato di gioco       ← fetta quiz
   persistence/        Room DB, template di stanza, storico                  (da fare)
   app/                Jetpack Compose: creazione stanza + regia             (da fare)
-web/                  client (TypeScript + Svelte + Vite, PWA)
-  shared/             protocollo WS, tipi condivisi                         ← protocollo iniziale
-  viewer/             vista TV                                              (da fare)
-  spectator/          vista telefono                                       (da fare)
+web/                  client (HTML/JS ora; Svelte + Vite in seguito)
+  shared/             protocollo WS, tipi condivisi                         ← protocollo
+  viewer/             vista TV                                              ← fetta quiz
+  spectator/          vista telefono                                       ← fetta quiz
 docs/
   architettura.md     proposta di architettura completa
 ```
 
+## Provare la fetta end-to-end (quiz)
+
+Serve un JDK 21. Dalla cartella `admin-android`:
+
+```bash
+./gradlew :server:run          # avvia l'host sulla porta 8080
+```
+
+All'avvio la console stampa gli indirizzi. Poi, sulla stessa rete:
+
+- **Visualizzatore (TV)**: apri `http://<ip-host>:8080/viewer/index.html` — mostra PIN e QR.
+- **Spettatore (telefono)**: inquadra il QR o apri `.../spectator/index.html`, entra col PIN `4291`.
+- **Regia**: apri `http://<ip-host>:8080/admin` e usa i pulsanti *Prossima domanda / Chiudi / Svela*.
+
+Test automatici:
+
+```bash
+./gradlew :engine:test :server:test
+```
+
+Lo stesso codice del server girerà in seguito embedded nell'app Android host.
+
 ## Stato
 
-Prima iterazione: **scheletro + modello dati dettagliato** da revisionare insieme
-prima di costruirci sopra il server, la UI e i client web. Vedi
-[`docs/architettura.md`](docs/architettura.md) per il quadro completo.
+- **Fatto e verificato**: modello dati (`engine`) con test; **fetta quiz end-to-end**
+  (`server` Ktor + client `viewer`/`spectator`) con test d'integrazione e smoke test
+  su browser reale.
+- **Prossimo**: app Android (Compose + Ktor embedded) come host, persistenza (Room),
+  poi le altre modalità e la personalizzazione. Vedi
+  [`docs/architettura.md`](docs/architettura.md).

@@ -1,6 +1,7 @@
 package it.marcolipparini.sfide.engine.protocol
 
 import it.marcolipparini.sfide.engine.model.RoomDefinition
+import it.marcolipparini.sfide.engine.model.SelectionType
 import it.marcolipparini.sfide.engine.phase.Match
 import it.marcolipparini.sfide.engine.phase.RoomPhase
 import it.marcolipparini.sfide.engine.phase.Standing
@@ -64,8 +65,28 @@ sealed interface ServerState {
     data class Turn(
         val turnId: String,
         val phase: RoomPhase,
+        /** Vista pubblica della domanda/prova (senza le risposte corrette). */
+        val prompt: PublicPrompt? = null,
+        val index: Int? = null,
+        val total: Int? = null,
         val timerSeconds: Int? = null,
         val locked: Boolean = false,
+    ) : ServerState
+
+    /** Avanzamento della raccolta input (per il "quanti hanno risposto" sulla TV). */
+    @Serializable
+    @SerialName("progress")
+    data class Progress(
+        val turnId: String,
+        val answered: Int,
+        val total: Int,
+    ) : ServerState
+
+    /** Elenco dei partecipanti connessi con il punteggio corrente. */
+    @Serializable
+    @SerialName("players")
+    data class Players(
+        val players: List<PlayerInfo>,
     ) : ServerState
 
     @Serializable
@@ -73,6 +94,7 @@ sealed interface ServerState {
     data class Reveal(
         val turnId: String,
         val standings: List<Standing>,
+        val correctOptionIds: List<String> = emptyList(),
     ) : ServerState
 
     @Serializable
@@ -82,3 +104,25 @@ sealed interface ServerState {
         val nextMatchId: String? = null,
     ) : ServerState
 }
+
+/** Domanda esposta ai client: nessuna informazione su quale opzione sia corretta. */
+@Serializable
+data class PublicPrompt(
+    val title: String,
+    val imageAssetId: String? = null,
+    val options: List<PublicOption> = emptyList(),
+    val selection: SelectionType = SelectionType.SINGLE,
+)
+
+@Serializable
+data class PublicOption(
+    val id: String,
+    val text: String,
+)
+
+@Serializable
+data class PlayerInfo(
+    val id: String,
+    val name: String,
+    val score: Double = 0.0,
+)
