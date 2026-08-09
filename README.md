@@ -101,6 +101,9 @@ pulsanti Prossima/Chiudi/Svela). Richiede l'Android SDK (`compileSdk 35`,
     (colori via variabili CSS dal tema della stanza).
   - **animazioni**: entrate/transizioni di domande, opzioni, classifica e tabellone
     (rispettando `prefers-reduced-motion`).
-- **Stato**: le funzioni previste (opzioni 1–4) sono complete. Prossimi possibili
-  passi in [`docs/architettura.md`](docs/architettura.md) (es. modalità Questionario
-  a sé, spettatori da remoto, Spotify).
+  - **modalità Questionario** con sessione propria: nessuna risposta giusta, alla
+    rivelazione mostra la distribuzione ("il pubblico ha detto").
+  - **storico automatico**: a fine partita il risultato (con vincitore) è salvato in
+    locale; l'app ha una schermata **Storico partite**.
+- **Stato**: funzioni complete. Spunti futuri in
+  [`docs/architettura.md`](docs/architettura.md) (spettatori da remoto, Spotify).

@@ -73,6 +73,7 @@
     let currentTurn = null;   // quiz
     let voteTurn = null;      // voti
     let myPick = null;
+    let mode = "quiz";
     let timerInterval = null;
 
     function startTimer(seconds) {
@@ -108,6 +109,7 @@
       switch (msg.type) {
         case "snapshot":
           applyTheme(msg.room?.theme);
+          mode = msg.room?.mode?.type ?? "quiz";
           joinCard.classList.add("hidden");
           game.classList.remove("hidden");
           if (msg.phase === "LOBBY") waiting();
@@ -126,6 +128,7 @@
           break;
         case "reveal":
           if (msg.subjectId != null) voteRegistered();
+          else if (mode === "questionnaire") surveyThanks();
           else showReveal(msg.correctOptionIds);
           break;
       }
@@ -204,6 +207,11 @@
       setStatus("Chiuso. In attesa dei risultati…");
     }
     function thanks() { stopTimer(); setGame(`<div class="big">Grazie per aver partecipato! 🎉</div>`); }
+    function surveyThanks() {
+      stopTimer();
+      game.querySelectorAll(".opt").forEach((b) => { b.disabled = true; if (b.dataset.id === myPick) b.classList.add("picked"); });
+      setStatus("Grazie! Guarda i risultati sullo schermo. 📊");
+    }
     function setStatus(t) { const s = document.getElementById("status"); if (s) s.textContent = t; }
     function setGame(html) { game.innerHTML = html; }
     function escape(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }

@@ -115,4 +115,27 @@ object SampleRooms {
         scoring = ScoringRules(aggregation = Aggregation.WEIGHTED_MEAN),
         interaction = SpectatorInteraction(canAnswer = false, canVote = true, requireName = true),
     )
+
+    /** Un questionario/sondaggio: nessuna risposta giusta, risultati aggregati. */
+    fun quickSurvey(): RoomDefinition = RoomDefinition(
+        meta = RoomMeta(title = "Sondaggio", pin = "2020"),
+        mode = GameModeConfig.Questionnaire(
+            questions = listOf(
+                Question(
+                    id = "q1",
+                    text = "Qual è la pizza migliore?",
+                    options = listOf(
+                        AnswerOption("a", "Margherita"),
+                        AnswerOption("b", "Diavola"),
+                        AnswerOption("c", "Quattro formaggi"),
+                        AnswerOption("d", "Capricciosa"),
+                    ),
+                ),
+            ),
+        ),
+        participants = ParticipantsConfig(kind = CompetitorKind.INDIVIDUALS, competitors = emptyList()),
+        format = FormatConfig.AllVsAll(),
+        scoring = ScoringRules(),
+        interaction = SpectatorInteraction(canAnswer = true, canVote = false),
+    )
 }

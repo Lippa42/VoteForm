@@ -3,6 +3,7 @@ package it.marcolipparini.sfide.server
 import it.marcolipparini.sfide.engine.EngineJson
 import it.marcolipparini.sfide.engine.bracket.Bracket
 import it.marcolipparini.sfide.engine.bracket.BracketEngine
+import it.marcolipparini.sfide.engine.history.MatchResult
 import it.marcolipparini.sfide.engine.model.Aggregation
 import it.marcolipparini.sfide.engine.model.Competitor
 import it.marcolipparini.sfide.engine.model.GameModeConfig
@@ -10,6 +11,7 @@ import it.marcolipparini.sfide.engine.model.RoomDefinition
 import it.marcolipparini.sfide.engine.model.VoteCriterion
 import it.marcolipparini.sfide.engine.model.VotingPrompt
 import it.marcolipparini.sfide.engine.phase.RoomPhase
+import it.marcolipparini.sfide.engine.phase.Standing
 import it.marcolipparini.sfide.engine.protocol.ClientIntent
 import it.marcolipparini.sfide.engine.protocol.ClientRole
 import it.marcolipparini.sfide.engine.protocol.ServerState
@@ -46,6 +48,8 @@ class KnockoutSession(override val room: RoomDefinition) : GameSession {
     private var current: Competitor? = null
     private val matchScores = HashMap<String, Double>()
     private var lastReveal: ServerState.Reveal? = null
+
+    override var onFinish: ((MatchResult) -> Unit)? = null
 
     @Volatile
     override var phase: RoomPhase = RoomPhase.LOBBY
@@ -100,6 +104,7 @@ class KnockoutSession(override val room: RoomDefinition) : GameSession {
     // ---- Controlli admin ----------------------------------------------------
 
     override suspend fun next() {
+        var finished: MatchResult? = null
         val msgs = mutex.withLock {
             if (queue.isNotEmpty()) {
                 current = queue.removeFirst()
@@ -110,6 +115,7 @@ class KnockoutSession(override val room: RoomDefinition) : GameSession {
                 val match = BracketEngine.nextMatch(bracket)
                 if (match == null) {
                     phase = RoomPhase.FINISHED
+                    finished = buildResult()
                     listOf(finishedTurn(), bracketState())
                 } else {
                     currentMatchId = match.id
@@ -123,6 +129,20 @@ class KnockoutSession(override val room: RoomDefinition) : GameSession {
             }
         }
         msgs.forEach { broadcast(it) }
+        finished?.let { onFinish?.invoke(it) }
+    }
+
+    private fun buildResult(): MatchResult {
+        val standings = room.participants.competitors
+            .map { Standing(competitorId = it.id, points = 0.0, rank = if (it.id == bracket.champion) 1 else 2) }
+            .sortedBy { it.rank }
+        return MatchResult(
+            id = java.util.UUID.randomUUID().toString(),
+            roomTitle = room.meta.title,
+            playedAtEpochMs = System.currentTimeMillis(),
+            finalStandings = standings,
+            winnerLabel = bracket.champion?.let { competitorsById[it]?.name },
+        )
     }
 
     override suspend fun lock() {

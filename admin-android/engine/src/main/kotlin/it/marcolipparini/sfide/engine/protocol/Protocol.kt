@@ -117,6 +117,8 @@ sealed interface ServerState {
         /** Concorrente appena valutato (modalità a voti): punteggio della prova. */
         val subjectId: String? = null,
         val subjectScore: Double? = null,
+        /** Distribuzione delle risposte per opzione (modalità questionario). */
+        val distribution: Map<String, Int> = emptyMap(),
     ) : ServerState
 
     @Serializable

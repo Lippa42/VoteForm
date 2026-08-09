@@ -64,10 +64,12 @@ private fun AppRoot() {
             onSaveTemplate = { room -> scope.launch { store.saveTemplate(room) }; screen = "home" },
             onStart = { room -> HostService.startWith(ctx, room) },
         )
+        screen == "history" -> HistoryScreen(store = store, onBack = { screen = "home" })
         else -> HomeScreen(
             store = store,
             onNew = { screen = "builder" },
             onStart = { room -> HostService.startWith(ctx, room) },
+            onHistory = { screen = "history" },
         )
     }
 }

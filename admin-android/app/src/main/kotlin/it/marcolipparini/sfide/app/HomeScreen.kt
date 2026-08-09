@@ -34,6 +34,7 @@ fun HomeScreen(
     store: SfideStore,
     onNew: () -> Unit,
     onStart: (RoomDefinition) -> Unit,
+    onHistory: () -> Unit,
 ) {
     val templates by store.templates.collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
@@ -45,6 +46,7 @@ fun HomeScreen(
         Text("🎯 Sfide · Host", color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
         Button(onClick = onNew, modifier = Modifier.fillMaxWidth()) { Text("➕ Crea nuova stanza") }
+        OutlinedButton(onClick = onHistory, modifier = Modifier.fillMaxWidth()) { Text("📊 Storico partite") }
 
         Text("Esempi rapidi", color = InkSoft, fontSize = 12.sp)
         OutlinedButton(onClick = { onStart(SampleRooms.quizTournament()) }, modifier = Modifier.fillMaxWidth()) {

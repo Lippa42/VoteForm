@@ -13,4 +13,6 @@ data class MatchResult(
     val roomTitle: String,
     val playedAtEpochMs: Long,
     val finalStandings: List<Standing>,
+    /** Nome leggibile del vincitore/campione, se applicabile. */
+    val winnerLabel: String? = null,
 )

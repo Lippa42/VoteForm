@@ -1,6 +1,7 @@
 package it.marcolipparini.sfide.server
 
 import it.marcolipparini.sfide.engine.EngineJson
+import it.marcolipparini.sfide.engine.history.MatchResult
 import it.marcolipparini.sfide.engine.model.Aggregation
 import it.marcolipparini.sfide.engine.model.Competitor
 import it.marcolipparini.sfide.engine.model.GameModeConfig
@@ -56,6 +57,8 @@ class VotingSession(override val room: RoomDefinition) : GameSession {
     }
     private var standings: List<Standing> = emptyList()
     private var lastReveal: ServerState.Reveal? = null
+
+    override var onFinish: ((MatchResult) -> Unit)? = null
 
     @Volatile
     override var phase: RoomPhase = RoomPhase.LOBBY
@@ -117,9 +120,19 @@ class VotingSession(override val room: RoomDefinition) : GameSession {
     override suspend fun next() {
         timerJob?.cancel()
         var scheduleId: String? = null
+        var finished: MatchResult? = null
         val msgs = mutex.withLock {
             if (index + 1 >= subjects.size) {
                 phase = RoomPhase.FINISHED
+                standings = computeStandings()
+                finished = MatchResult(
+                    id = java.util.UUID.randomUUID().toString(),
+                    roomTitle = room.meta.title,
+                    playedAtEpochMs = System.currentTimeMillis(),
+                    finalStandings = standings,
+                    winnerLabel = standings.firstOrNull()?.competitorId
+                        ?.let { id -> room.participants.competitors.firstOrNull { it.id == id }?.name },
+                )
                 listOf(ServerState.VoteTurn(
                     turnId = "end", phase = RoomPhase.FINISHED, promptTitle = "", competitorId = "",
                     competitorName = "", criteria = emptyList(), scaleMin = scale.min, scaleMax = scale.max,
@@ -135,6 +148,7 @@ class VotingSession(override val room: RoomDefinition) : GameSession {
         }
         msgs.forEach { broadcast(it) }
         scheduleId?.let { scheduleAutoLock(voting.answerTimeSeconds, it) }
+        finished?.let { onFinish?.invoke(it) }
     }
 
     override suspend fun lock() {

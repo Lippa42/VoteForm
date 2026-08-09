@@ -30,6 +30,7 @@ fun main() {
     val room = when (System.getenv("ROOM")?.lowercase()) {
         "voting" -> SampleRooms.cookingVoting()
         "knockout" -> SampleRooms.cookingKnockout()
+        "survey" -> SampleRooms.quickSurvey()
         else -> SampleRooms.quizTournament()
     }
     printBanner(port)

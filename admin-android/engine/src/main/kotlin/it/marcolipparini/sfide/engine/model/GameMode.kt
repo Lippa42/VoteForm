@@ -36,6 +36,7 @@ sealed interface GameModeConfig {
     data class Questionnaire(
         val questions: List<Question>,
         val showAggregateLive: Boolean = true,
+        val answerTimeSeconds: Int = 30,
     ) : GameModeConfig
 }
 

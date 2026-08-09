@@ -9,12 +9,17 @@ import it.marcolipparini.sfide.engine.model.RoomDefinition
 import it.marcolipparini.sfide.engine.samples.SampleRooms
 import it.marcolipparini.sfide.server.DEFAULT_PORT
 import it.marcolipparini.sfide.server.GameSession
+import it.marcolipparini.sfide.persistence.SfideStore
 import it.marcolipparini.sfide.server.localIp
 import it.marcolipparini.sfide.server.sessionFor
 import it.marcolipparini.sfide.server.sfideModule
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 data class HostInfo(
     val running: Boolean = false,
@@ -32,6 +37,7 @@ data class HostInfo(
 object HostController {
 
     private var engine: ApplicationEngine? = null
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** Sessione attiva: la regia (UI Compose) la usa per far avanzare le fasi. */
     var session: GameSession? = null
@@ -48,6 +54,9 @@ object HostController {
         if (engine != null) return
         val gameSession = sessionFor(room)
         session = gameSession
+        // A fine partita salva il risultato nello storico locale.
+        val store = SfideStore(context.applicationContext)
+        gameSession.onFinish = { result -> ioScope.launch { store.saveResult(result) } }
         val assets = context.applicationContext.assets
         engine = embeddedServer(CIO, port = port, host = "0.0.0.0") {
             sfideModule(session = gameSession, port = port, staticRoutes = { assetStatic(assets) })

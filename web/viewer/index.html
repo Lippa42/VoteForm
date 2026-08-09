@@ -42,6 +42,12 @@
     .row .name { flex: 1; text-align: left; font-size: 1.2rem; }
     .row .pts { font-variant-numeric: tabular-nums; font-weight: 700; }
     .hint { color: #767c90; }
+    .poll { width: min(760px, 90vw); display: flex; flex-direction: column; gap: 14px; }
+    .pollrow { display: grid; grid-template-columns: 200px 1fr 110px; align-items: center; gap: 14px; }
+    .polllabel { text-align: right; font-size: 1.15rem; }
+    .pollbar { background: #1e212b; border: 1px solid #262a36; border-radius: 999px; height: 26px; overflow: hidden; }
+    .pollfill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .6s ease; }
+    .pollpct { font-variant-numeric: tabular-nums; color: #a9aebf; }
     .bracket { display: flex; gap: 28px; align-items: center; justify-content: center; flex-wrap: wrap; }
     .bround { display: flex; flex-direction: column; gap: 18px; }
     .rlabel { font-size: .8rem; color: #767c90; text-transform: uppercase; letter-spacing: .12em; text-align: center; }
@@ -141,6 +147,7 @@
           break;
         case "reveal":
           if (msg.subjectId != null) renderVotingReveal(msg);
+          else if (mode === "questionnaire") renderSurvey(msg);
           else renderQuestion(lastTurn, true, msg.correctOptionIds);
           break;
         case "bracket":
@@ -169,6 +176,24 @@
     }
 
     function cname(id) { return id ? escape(competitors.get(id) ?? id) : "—"; }
+
+    function renderSurvey(msg) {
+      stopTimer();
+      currentView = "survey";
+      const opts = lastTurn?.prompt?.options ?? [];
+      const dist = msg.distribution || {};
+      const total = Object.values(dist).reduce((a, b) => a + b, 0) || 1;
+      const rows = opts.map((o) => {
+        const c = dist[o.id] || 0;
+        const pct = Math.round((c * 100) / total);
+        return `<div class="pollrow"><div class="polllabel">${escape(o.text)}</div>
+          <div class="pollbar"><div class="pollfill" style="width:${pct}%"></div></div>
+          <div class="pollpct">${pct}% (${c})</div></div>`;
+      }).join("");
+      main.innerHTML = `<div class="qcount">Il pubblico ha detto</div>
+        <div class="question">${escape(lastTurn?.prompt?.title ?? "")}</div>
+        <div class="poll">${rows}</div>`;
+    }
 
     let currentView = "lobby";
 
