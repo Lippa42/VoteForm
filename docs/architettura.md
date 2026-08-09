@@ -91,8 +91,48 @@ Spotify: solo controllo playback via SDK, in fase 2 (non è possibile ridistribu
   tema/media/musica RF, storico locale (Room DB).
 - **Fase 2**: spettatori remoti (relay cloud leggero), controllo playback Spotify.
 
+## Spunti futuri: spettatori da remoto e Spotify
+
+Queste due funzioni richiedono infrastruttura/credenziali esterne, quindi qui c'è il
+**design** (non codice non verificabile).
+
+### Spettatori da remoto
+
+Punto chiave: i client web si collegano già a `ws://<origin>/ws`, cioè a *qualunque*
+host li serva. "Remoto" è quindi un problema di **raggiungibilità di rete**, non di
+codice applicativo.
+
+- **Opzione A — tunnel (consigliata, minimo cloud).** L'host apre un tunnel temporaneo
+  verso l'esterno (es. Cloudflare Tunnel / ngrok / un piccolo relay TCP). Gli spettatori
+  remoti aprono l'URL pubblico del tunnel; stato e calcolo restano sul dispositivo.
+  Nessuna logica di gioco in cloud, solo inoltro. Impatto sul codice: ~nullo lato client
+  (usano già l'origin), lato host solo l'avvio/gestione del tunnel.
+- **Opzione B — relay WebSocket.** Un piccolo servizio cloud che inoltra i messaggi tra
+  host e client quando non sono sulla stessa LAN. Richiede un componente server minimale
+  (nessuna logica di gioco).
+- **Considerazioni**: il PIN limita già l'accesso; su rete pubblica aggiungere TLS (dal
+  tunnel) e un rate limit; il NAT è risolto dal tunnel; latenza accettabile per quiz/voti.
+
+### Spotify
+
+Vincolo legale: non si possono scaricare/ridistribuire i brani. Si può solo **comandare
+la riproduzione** su un dispositivo con account (spesso Premium) via **Android Spotify
+App Remote SDK** + OAuth.
+
+- **Design**: un'astrazione `MusicController` con due implementazioni:
+  - `LocalMusicController` — riproduce le tracce royalty-free locali (già in
+    `MediaConfig.music`). Implementabile e verificabile.
+  - `SpotifyMusicController` — App Remote SDK (`connect`, `play(uri)`, `pause`, `resume`).
+    Richiede credenziali dev + dispositivo reale → non verificabile qui.
+- **Integrazione**: la regia (Compose) espone i controlli musica; la musica suona
+  sull'host e **non** passa dai client (che restano semplici browser).
+- **Passi per completarlo**: registrare l'app sulla Spotify Developer Dashboard,
+  aggiungere la dipendenza App Remote, gestire OAuth/redirect, testare su device.
+
 ## Stato del codice
 
-Implementato e verificato: modulo `engine` (modello dati + protocollo + esempi + test
-che passano). Da fare: `server` (Ktor), `persistence` (Room), `app` (Compose), client
-web `viewer`/`spectator`.
+Implementato e verificato (test + smoke su browser reale): `engine` (modello dati,
+motore voto, tabellone), `server` (Ktor, sessioni Quiz/Voti/Torneo/Questionario, timer),
+client web `viewer`/`spectator` (bimodali, tema, animazioni), `persistence` (Room:
+template + storico). L'app `app` (Compose: creazione stanza, regia, storico, foreground
+service) compila in APK. Restano gli spunti qui sopra (remoto, Spotify).
