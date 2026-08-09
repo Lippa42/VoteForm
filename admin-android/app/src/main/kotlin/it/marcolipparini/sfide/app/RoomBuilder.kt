@@ -14,6 +14,8 @@ import it.marcolipparini.sfide.engine.model.ParticipantsConfig
 import it.marcolipparini.sfide.engine.model.Question
 import it.marcolipparini.sfide.engine.model.RoomDefinition
 import it.marcolipparini.sfide.engine.model.RoomMeta
+import it.marcolipparini.sfide.engine.model.MediaAsset
+import it.marcolipparini.sfide.engine.model.MediaConfig
 import it.marcolipparini.sfide.engine.model.MediaKind
 import it.marcolipparini.sfide.engine.model.ScoringRules
 import it.marcolipparini.sfide.engine.model.Segment
@@ -150,6 +152,7 @@ class SegmentDraft(val type: SegmentType) {
     var title by mutableStateOf(type.label)
     var subtitle by mutableStateOf("")            // sottotitolo (Titolo) o didascalia (Media)
     var mediaKind by mutableStateOf(MediaKind.IMAGE)
+    var assetId by mutableStateOf<String?>(null)  // media caricato (fase Media)
     val questions = mutableStateListOf<QuestionDraft>().apply {
         if (type == SegmentType.QUIZ || type == SegmentType.QUESTIONNAIRE) add(QuestionDraft())
     }
@@ -165,6 +168,7 @@ fun buildTimelineRoom(
     palette: Palette,
     competitors: List<CompetitorDraft>,
     segments: List<SegmentDraft>,
+    assets: List<MediaAsset> = emptyList(),
 ): RoomDefinition {
     val comps = competitors.filter { it.name.isNotBlank() }
         .mapIndexed { i, c -> Competitor(id = "c$i", name = c.name.trim()) }
@@ -173,7 +177,7 @@ fun buildTimelineRoom(
         val sid = "seg$i"
         when (s.type) {
             SegmentType.TITLE -> Segment.Title(sid, s.title.ifBlank { "Titolo" }, s.subtitle)
-            SegmentType.MEDIA -> Segment.Media(sid, s.title.ifBlank { "Media" }, s.mediaKind, caption = s.subtitle)
+            SegmentType.MEDIA -> Segment.Media(sid, s.title.ifBlank { "Media" }, s.mediaKind, assetId = s.assetId, caption = s.subtitle)
             SegmentType.STANDINGS -> Segment.Standings(sid, s.title.ifBlank { "Classifica" })
             SegmentType.FINAL -> Segment.Final(sid, s.title.ifBlank { "Finale" })
             SegmentType.QUIZ -> Segment.Quiz(sid, s.title.ifBlank { "Quiz" }, questionsOf(sid, s.questions))
@@ -206,6 +210,7 @@ fun buildTimelineRoom(
         format = FormatConfig.AllVsAll(),
         scoring = ScoringRules(aggregation = Aggregation.WEIGHTED_MEAN),
         theme = Theme(paletteName = palette.name, primaryColor = palette.primary, backgroundColor = palette.background),
+        media = MediaConfig(assets = assets),
         interaction = SpectatorInteraction(canAnswer = true, canVote = true, requireName = true),
         timeline = timeline,
     )

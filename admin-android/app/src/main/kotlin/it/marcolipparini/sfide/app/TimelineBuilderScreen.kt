@@ -1,5 +1,8 @@
 package it.marcolipparini.sfide.app
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,13 +37,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Context
+import it.marcolipparini.sfide.engine.model.MediaAsset
 import it.marcolipparini.sfide.engine.model.MediaKind
 import it.marcolipparini.sfide.engine.model.RoomDefinition
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import java.io.File
+import java.util.UUID
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -49,16 +57,29 @@ fun TimelineBuilderScreen(
     onSaveTemplate: (RoomDefinition) -> Unit,
     onStart: (RoomDefinition) -> Unit,
 ) {
+    val ctx = LocalContext.current
     var title by remember { mutableStateOf("") }
     var pin by remember { mutableStateOf("") }
     var paletteIndex by remember { mutableStateOf(0) }
     val competitors = remember { mutableStateListOf(CompetitorDraft(), CompetitorDraft()) }
+    val assets = remember { mutableStateListOf<MediaAsset>() }
     val segments = remember {
         mutableStateListOf(SegmentDraft(SegmentType.TITLE), SegmentDraft(SegmentType.QUIZ), SegmentDraft(SegmentType.FINAL))
     }
 
     fun current(): RoomDefinition =
-        buildTimelineRoom(title, pin, palettes[paletteIndex], competitors, segments)
+        buildTimelineRoom(title, pin, palettes[paletteIndex], competitors, segments, assets)
+
+    val onPicked: (SegmentDraft, Uri?) -> Unit = { seg, uri ->
+        if (uri != null) {
+            val id = UUID.randomUUID().toString()
+            val path = copyAssetToInternal(ctx, uri, id)
+            if (path != null) {
+                assets.add(MediaAsset(id = id, localPath = path))
+                seg.assetId = id
+            }
+        }
+    }
 
     val lazyListState = rememberLazyListState()
     val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
@@ -115,6 +136,7 @@ fun TimelineBuilderScreen(
                     seg = seg,
                     handle = Modifier.draggableHandle(),
                     onRemove = { if (segments.size > 1) segments.remove(seg) },
+                    onPicked = onPicked,
                 )
             }
         }
@@ -137,7 +159,7 @@ fun TimelineBuilderScreen(
 }
 
 @Composable
-private fun SegmentCard(seg: SegmentDraft, handle: Modifier, onRemove: () -> Unit) {
+private fun SegmentCard(seg: SegmentDraft, handle: Modifier, onRemove: () -> Unit, onPicked: (SegmentDraft, Uri?) -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Surface).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -161,6 +183,10 @@ private fun SegmentCard(seg: SegmentDraft, handle: Modifier, onRemove: () -> Uni
                             OutlinedButton(onClick = { seg.mediaKind = k }) { Text(k.name) }
                         }
                     }
+                }
+                val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> onPicked(seg, uri) }
+                OutlinedButton(onClick = { picker.launch(mimeForKind(seg.mediaKind)) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (seg.assetId != null) "File caricato ✓ — cambia" else "Scegli file dal dispositivo")
                 }
             }
             SegmentType.QUIZ, SegmentType.QUESTIONNAIRE -> QuestionsEditor(seg, quiz = seg.type == SegmentType.QUIZ)
@@ -217,4 +243,35 @@ private fun TField(value: String, onChange: (String) -> Unit, label: String, mod
 @Composable
 private fun Label(text: String) {
     Text(text, color = InkSoft, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+}
+
+private fun mimeForKind(kind: MediaKind): String = when (kind) {
+    MediaKind.IMAGE -> "image/*"
+    MediaKind.MUSIC -> "audio/*"
+    MediaKind.VIDEO -> "video/*"
+}
+
+/** Copia il file scelto nella storage interna dell'app e ne ritorna il percorso. */
+private fun copyAssetToInternal(ctx: Context, uri: Uri, id: String): String? = runCatching {
+    val dir = File(ctx.filesDir, "assets").apply { mkdirs() }
+    val ext = extForMime(ctx.contentResolver.getType(uri))
+    val file = File(dir, "$id$ext")
+    ctx.contentResolver.openInputStream(uri)?.use { input ->
+        file.outputStream().use { output -> input.copyTo(output) }
+    }
+    file.absolutePath
+}.getOrNull()
+
+private fun extForMime(mime: String?): String = when (mime) {
+    "image/png" -> ".png"
+    "image/jpeg" -> ".jpg"
+    "image/webp" -> ".webp"
+    "image/gif" -> ".gif"
+    "audio/mpeg" -> ".mp3"
+    "audio/mp4", "audio/aac" -> ".m4a"
+    "audio/ogg" -> ".ogg"
+    "audio/wav", "audio/x-wav" -> ".wav"
+    "video/mp4" -> ".mp4"
+    "video/webm" -> ".webm"
+    else -> ""
 }

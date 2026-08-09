@@ -105,5 +105,8 @@ pulsanti Prossima/Chiudi/Svela). Richiede l'Android SDK (`compileSdk 35`,
     rivelazione mostra la distribuzione ("il pubblico ha detto").
   - **storico automatico**: a fine partita il risultato (con vincitore) è salvato in
     locale; l'app ha una schermata **Storico partite**.
+  - **media reali**: la fase Media mostra davvero l'immagine/audio/video servito
+    dall'host (rotta `/asset/{id}`); nel builder l'admin **carica il file dal
+    dispositivo** (copiato nella storage interna dell'app).
 - **Stato**: funzioni complete. Spunti futuri in
   [`docs/architettura.md`](docs/architettura.md) (spettatori da remoto, Spotify).

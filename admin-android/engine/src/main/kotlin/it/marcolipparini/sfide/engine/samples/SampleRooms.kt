@@ -219,4 +219,28 @@ object SampleRooms {
             Segment.Final(id = "s3", title = "Finale"),
         ),
     )
+
+    /** Demo di una fase Media con un asset reale servito dall'host. */
+    fun mediaShow(): RoomDefinition {
+        val imagePath = System.getenv("SFIDE_MEDIA_PATH") ?: "sample.png"
+        return RoomDefinition(
+            meta = RoomMeta(title = "Media Demo", pin = "8000"),
+            mode = GameModeConfig.Quiz(questions = emptyList()),
+            participants = ParticipantsConfig(kind = CompetitorKind.INDIVIDUALS, competitors = emptyList()),
+            format = FormatConfig.AllVsAll(),
+            scoring = ScoringRules(),
+            media = MediaConfig(assets = listOf(MediaAsset(id = "img1", localPath = imagePath))),
+            timeline = listOf(
+                Segment.Title(id = "s1", title = "Media Demo", subtitle = "Un'immagine dal dispositivo"),
+                Segment.Media(
+                    id = "s2",
+                    title = "La nostra immagine",
+                    kind = MediaKind.IMAGE,
+                    assetId = "img1",
+                    caption = "Servita in locale dall'host, senza cloud",
+                ),
+                Segment.Final(id = "s3", title = "Fine"),
+            ),
+        )
+    }
 }

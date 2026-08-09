@@ -1,12 +1,15 @@
 package it.marcolipparini.sfide.server
 
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.http.content.staticFiles
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
@@ -33,11 +36,12 @@ fun main() {
         "survey" -> SampleRooms.quickSurvey()
         "show" -> SampleRooms.showcase()
         "showtour" -> SampleRooms.tournamentShow()
+        "showmedia" -> SampleRooms.mediaShow()
         else -> SampleRooms.quizTournament()
     }
     printBanner(port)
     embeddedServer(CIO, port = port, host = "0.0.0.0") {
-        sfideModule(session = sessionFor(room), port = port)
+        sfideModule(session = sessionFor(room), port = port, assets = RoomAssetResolver(room))
     }.start(wait = true)
 }
 
@@ -49,18 +53,29 @@ fun main() {
 fun Application.sfideModule(
     session: GameSession = sessionFor(SampleRooms.quizTournament()),
     port: Int = DEFAULT_PORT,
+    assets: AssetResolver? = null,
     staticRoutes: Route.() -> Unit = { fileStatic() },
 ) {
     install(WebSockets)
     routing {
-        apiRoutes(session, port)
+        apiRoutes(session, port, assets)
         get("/") { call.respondRedirect("/viewer/index.html") }
         staticRoutes()
     }
 }
 
 /** Rotte comuni a ogni host (desktop o Android). */
-fun Route.apiRoutes(session: GameSession, port: Int = DEFAULT_PORT) {
+fun Route.apiRoutes(session: GameSession, port: Int = DEFAULT_PORT, assets: AssetResolver? = null) {
+    get("/asset/{id}") {
+        val id = call.parameters["id"]
+        val data = id?.let { assets?.open(it) }
+        if (data == null) {
+            call.respond(HttpStatusCode.NotFound)
+        } else {
+            call.respondBytes(data.bytes, ContentType.parse(data.contentType))
+        }
+    }
+
     webSocket("/ws") {
         val conn = Connection(UUID.randomUUID().toString()) { msg -> send(Frame.Text(msg)) }
         session.addConnection(conn)

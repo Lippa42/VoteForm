@@ -416,16 +416,16 @@ class ShowSession(override val room: RoomDefinition) : GameSession {
 
     private fun presentationMessages(seg: Segment): List<ServerState> = when (seg) {
         is Segment.Title -> listOf(screen("title", seg.title, subtitle = seg.subtitle))
-        is Segment.Media -> listOf(screen("media", seg.title, caption = seg.caption, mediaKind = seg.kind.name))
+        is Segment.Media -> listOf(screen("media", seg.title, caption = seg.caption, mediaKind = seg.kind.name, assetId = seg.assetId))
         is Segment.Standings -> listOf(scoreBoard(seg.title, isFinal = false))
         is Segment.Final -> listOf(finalScoreboard(title = seg.title))
         else -> emptyList()
     }
 
-    private fun screen(kind: String, title: String, subtitle: String = "", caption: String = "", mediaKind: String? = null) =
+    private fun screen(kind: String, title: String, subtitle: String = "", caption: String = "", mediaKind: String? = null, assetId: String? = null) =
         ServerState.Screen(
             index = cursor + 1, total = segments.size, kind = kind,
-            title = title, subtitle = subtitle, caption = caption, mediaKind = mediaKind,
+            title = title, subtitle = subtitle, caption = caption, mediaKind = mediaKind, assetId = assetId,
         )
 
     private fun scoreBoard(title: String, isFinal: Boolean): ServerState.ScoreBoard {

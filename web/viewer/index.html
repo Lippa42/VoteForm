@@ -166,9 +166,18 @@
       stopTimer();
       currentView = "screen";
       if (msg.kind === "media") {
-        const icon = msg.mediaKind === "MUSIC" ? "🎵" : msg.mediaKind === "VIDEO" ? "🎬" : "🖼️";
+        let media;
+        if (msg.assetId) {
+          const src = `/asset/${encodeURIComponent(msg.assetId)}`;
+          if (msg.mediaKind === "MUSIC") media = `<audio controls autoplay src="${src}"></audio>`;
+          else if (msg.mediaKind === "VIDEO") media = `<video controls autoplay playsinline style="max-width:82vw;max-height:66vh;border-radius:16px" src="${src}"></video>`;
+          else media = `<img src="${src}" alt="" style="max-width:82vw;max-height:66vh;border-radius:16px" />`;
+        } else {
+          const icon = msg.mediaKind === "MUSIC" ? "🎵" : msg.mediaKind === "VIDEO" ? "🎬" : "🖼️";
+          media = `<div class="subject">${icon}</div>`;
+        }
         main.innerHTML = `<div class="qcount">Fase ${msg.index} / ${msg.total}</div>
-          <div class="subject">${icon}</div>
+          ${media}
           <div class="question">${escape(msg.title)}</div>
           ${msg.caption ? `<div class="hint">${escape(msg.caption)}</div>` : ""}`;
       } else {

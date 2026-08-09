@@ -140,6 +140,7 @@ sealed interface ServerState {
         val subtitle: String = "",
         val caption: String = "",
         val mediaKind: String? = null,
+        val assetId: String? = null,
     ) : ServerState
 
     /** Classifica autosufficiente (con nomi) per le fasi Classifica/Finale. */

@@ -10,6 +10,7 @@ import it.marcolipparini.sfide.engine.samples.SampleRooms
 import it.marcolipparini.sfide.server.DEFAULT_PORT
 import it.marcolipparini.sfide.server.GameSession
 import it.marcolipparini.sfide.persistence.SfideStore
+import it.marcolipparini.sfide.server.RoomAssetResolver
 import it.marcolipparini.sfide.server.localIp
 import it.marcolipparini.sfide.server.sessionFor
 import it.marcolipparini.sfide.server.sfideModule
@@ -57,9 +58,10 @@ object HostController {
         // A fine partita salva il risultato nello storico locale.
         val store = SfideStore(context.applicationContext)
         gameSession.onFinish = { result -> ioScope.launch { store.saveResult(result) } }
-        val assets = context.applicationContext.assets
+        val webAssets = context.applicationContext.assets
+        val assetResolver = RoomAssetResolver(room)
         engine = embeddedServer(CIO, port = port, host = "0.0.0.0") {
-            sfideModule(session = gameSession, port = port, staticRoutes = { assetStatic(assets) })
+            sfideModule(session = gameSession, port = port, assets = assetResolver, staticRoutes = { assetStatic(webAssets) })
         }.also { it.start(wait = false) }
         _state.value = HostInfo(
             running = true,
