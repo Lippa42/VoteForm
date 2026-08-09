@@ -143,17 +143,49 @@
           else renderSubject(msg);
           break;
         case "progress":
-          { const el = document.getElementById("progress"); if (el) el.textContent = `${mode === "voting" ? "Voti" : "Risposte"}: ${msg.answered} / ${msg.total}`; }
+          { const el = document.getElementById("progress"); if (el) el.textContent = `${currentView === "subject" ? "Voti" : "Risposte"}: ${msg.answered} / ${msg.total}`; }
           break;
         case "reveal":
           if (msg.subjectId != null) renderVotingReveal(msg);
-          else if (mode === "questionnaire") renderSurvey(msg);
+          else if (msg.distribution && Object.keys(msg.distribution).length) renderSurvey(msg);
           else renderQuestion(lastTurn, true, msg.correctOptionIds);
           break;
         case "bracket":
           renderBracket(msg);
           break;
+        case "screen":
+          renderScreen(msg);
+          break;
+        case "scoreboard":
+          renderScoreBoard(msg);
+          break;
       }
+    }
+
+    function renderScreen(msg) {
+      stopTimer();
+      currentView = "screen";
+      if (msg.kind === "media") {
+        const icon = msg.mediaKind === "MUSIC" ? "🎵" : msg.mediaKind === "VIDEO" ? "🎬" : "🖼️";
+        main.innerHTML = `<div class="qcount">Fase ${msg.index} / ${msg.total}</div>
+          <div class="subject">${icon}</div>
+          <div class="question">${escape(msg.title)}</div>
+          ${msg.caption ? `<div class="hint">${escape(msg.caption)}</div>` : ""}`;
+      } else {
+        main.innerHTML = `<div class="question">${escape(msg.title)}</div>
+          ${msg.subtitle ? `<div class="qcount">${escape(msg.subtitle)}</div>` : ""}`;
+      }
+    }
+
+    function renderScoreBoard(msg) {
+      stopTimer();
+      currentView = "scoreboard";
+      const rows = msg.entries.map((e) => rowHtml(e.rank, e.name, e.score)).join("");
+      const champ = msg.entries.find((e) => e.id === msg.champion);
+      const head = msg.isFinal && champ
+        ? `<div class="qcount">Vincitore</div><div class="subject">🏆 ${escape(champ.name)}</div>`
+        : `<div class="question">${escape(msg.title)}</div>`;
+      main.innerHTML = `${head}<div class="standings">${rows}</div>`;
     }
 
     function renderBracket(b) {

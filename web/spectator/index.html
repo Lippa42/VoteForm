@@ -128,10 +128,21 @@
           break;
         case "reveal":
           if (msg.subjectId != null) voteRegistered();
-          else if (mode === "questionnaire") surveyThanks();
+          else if (msg.distribution && Object.keys(msg.distribution).length) surveyThanks();
           else showReveal(msg.correctOptionIds);
           break;
+        case "screen":
+        case "scoreboard":
+          watchScreen(msg);
+          break;
       }
+    }
+
+    function watchScreen(msg) {
+      stopTimer();
+      const t = msg.title ? escape(msg.title) : "";
+      setGame(`<div class="center"><div class="big">📺</div>
+        <div class="muted">Guarda lo schermo${t ? ` — ${t}` : ""}</div></div>`);
     }
 
     function waiting() {

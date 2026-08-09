@@ -128,6 +128,29 @@ sealed interface ServerState {
         val champion: String? = null,
         val nextMatchId: String? = null,
     ) : ServerState
+
+    /** Fase di presentazione (titolo, media): la TV mostra una schermata. */
+    @Serializable
+    @SerialName("screen")
+    data class Screen(
+        val index: Int,
+        val total: Int,
+        val kind: String,
+        val title: String,
+        val subtitle: String = "",
+        val caption: String = "",
+        val mediaKind: String? = null,
+    ) : ServerState
+
+    /** Classifica autosufficiente (con nomi) per le fasi Classifica/Finale. */
+    @Serializable
+    @SerialName("scoreboard")
+    data class ScoreBoard(
+        val title: String,
+        val entries: List<ScoreEntry>,
+        val champion: String? = null,
+        val isFinal: Boolean = false,
+    ) : ServerState
 }
 
 /** Domanda esposta ai client: nessuna informazione su quale opzione sia corretta. */
@@ -158,4 +181,13 @@ data class VoteCriterionView(
     val id: String,
     val label: String,
     val weight: Double,
+)
+
+/** Riga di classifica autosufficiente (id + nome + punteggio). */
+@Serializable
+data class ScoreEntry(
+    val id: String,
+    val name: String,
+    val score: Double,
+    val rank: Int,
 )

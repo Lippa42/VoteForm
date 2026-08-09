@@ -29,9 +29,12 @@ interface GameSession {
 }
 
 /** Sceglie l'implementazione di sessione in base alla modalità della stanza. */
-fun sessionFor(room: RoomDefinition): GameSession = when (room.mode) {
-    is GameModeConfig.Quiz -> QuizSession(room)
-    is GameModeConfig.Voting ->
-        if (room.format is FormatConfig.Knockout) KnockoutSession(room) else VotingSession(room)
-    is GameModeConfig.Questionnaire -> QuestionnaireSession(room)
+fun sessionFor(room: RoomDefinition): GameSession {
+    if (room.timeline.isNotEmpty()) return ShowSession(room)
+    return when (room.mode) {
+        is GameModeConfig.Quiz -> QuizSession(room)
+        is GameModeConfig.Voting ->
+            if (room.format is FormatConfig.Knockout) KnockoutSession(room) else VotingSession(room)
+        is GameModeConfig.Questionnaire -> QuestionnaireSession(room)
+    }
 }

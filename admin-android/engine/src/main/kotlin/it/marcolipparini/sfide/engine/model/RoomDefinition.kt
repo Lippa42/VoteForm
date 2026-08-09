@@ -19,6 +19,12 @@ data class RoomDefinition(
     val theme: Theme = Theme(),
     val media: MediaConfig = MediaConfig(),
     val interaction: SpectatorInteraction = SpectatorInteraction(),
+    /**
+     * Timeline di fasi componibili. Se non vuota, la stanza è guidata da questa
+     * sequenza ([Segment]) invece che dalla singola [mode] (che resta per
+     * retrocompatibilità con le stanze a modalità unica).
+     */
+    val timeline: List<Segment> = emptyList(),
 )
 
 @Serializable

@@ -138,4 +138,53 @@ object SampleRooms {
         scoring = ScoringRules(),
         interaction = SpectatorInteraction(canAnswer = true, canVote = false),
     )
+
+    /** Una "serata" composta: timeline con più fasi eterogenee. */
+    fun showcase(): RoomDefinition = RoomDefinition(
+        meta = RoomMeta(title = "Serata Sfide", pin = "9000"),
+        mode = GameModeConfig.Quiz(questions = emptyList()), // segnaposto: la timeline guida
+        participants = ParticipantsConfig(
+            kind = CompetitorKind.TEAMS,
+            competitors = listOf(Competitor("t1", "Rossi"), Competitor("t2", "Blu")),
+        ),
+        format = FormatConfig.AllVsAll(),
+        scoring = ScoringRules(aggregation = Aggregation.WEIGHTED_MEAN),
+        interaction = SpectatorInteraction(canAnswer = true, canVote = true, requireName = true),
+        timeline = listOf(
+            Segment.Title(id = "s1", title = "Benvenuti alla Serata Sfide!", subtitle = "Si comincia"),
+            Segment.Quiz(
+                id = "s2",
+                title = "Quiz di riscaldamento",
+                questions = listOf(
+                    Question(
+                        id = "q1",
+                        text = "Qual è la capitale d'Italia?",
+                        options = listOf(
+                            AnswerOption("a", "Milano"),
+                            AnswerOption("b", "Roma", correct = true),
+                            AnswerOption("c", "Napoli"),
+                        ),
+                    ),
+                ),
+                answerTimeSeconds = 20,
+            ),
+            Segment.Standings(id = "s3", title = "Classifica intermedia"),
+            Segment.Voting(
+                id = "s4",
+                title = "Sfida ai fornelli",
+                prompts = listOf(
+                    VotingPrompt(
+                        id = "p1",
+                        title = "Piatto della sfida",
+                        criteria = listOf(
+                            VoteCriterion("gusto", "Gusto", 2.0),
+                            VoteCriterion("pres", "Presentazione", 1.0),
+                        ),
+                    ),
+                ),
+                answerTimeSeconds = 20,
+            ),
+            Segment.Final(id = "s5", title = "Gran finale"),
+        ),
+    )
 }
