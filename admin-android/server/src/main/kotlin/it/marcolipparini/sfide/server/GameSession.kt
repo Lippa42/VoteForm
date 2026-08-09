@@ -26,6 +26,9 @@ interface GameSession {
     suspend fun next()
     suspend fun lock()
     suspend fun reveal()
+
+    /** Comando musica di sottofondo (pause/resume/skip). Default: nessuna musica. */
+    suspend fun music(command: String) {}
 }
 
 /** Sceglie l'implementazione di sessione in base alla modalità della stanza. */

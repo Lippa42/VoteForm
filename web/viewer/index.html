@@ -17,6 +17,9 @@
       padding: 24px 40px; border-bottom: 1px solid #262a36;
     }
     header .title { font-size: 1.6rem; font-weight: 800; }
+    header .bgm { display: flex; align-items: center; gap: 10px; color: #a9aebf; font-size: .95rem; }
+    header .bgm button { background: #1e212b; border: 1px solid #373c4c; color: #eceef5; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 1rem; }
+    header .bgm button:hover { border-color: var(--accent); }
     header .join { display: flex; align-items: center; gap: 20px; }
     header .pin { text-align: right; }
     header .pin b { display: block; font-size: 2rem; letter-spacing: .1em; color: var(--accent); }
@@ -78,11 +81,13 @@
 <body>
   <header>
     <div class="title">🎯 Sfide</div>
+    <div class="bgm"><button id="bgmBtn" title="Musica di sottofondo">▶</button><span id="bgmTitle"></span></div>
     <div class="join">
       <div class="pin"><span>PIN</span><b id="pin">—</b></div>
       <div class="qr"><img id="qr" alt="QR per entrare" /></div>
     </div>
   </header>
+  <audio id="bgmAudio"></audio>
   <main id="main">
     <div class="qcount">In attesa dei giocatori…</div>
     <div class="hint">Inquadra il QR o vai all'indirizzo mostrato per entrare.</div>
@@ -114,6 +119,25 @@
       if (theme.backgroundColor) r.setProperty("--bg", theme.backgroundColor);
     }
 
+    // --- Musica di sottofondo (elemento persistente, continua tra le fasi) ---
+    const bgmAudio = document.getElementById("bgmAudio");
+    let bgmList = [], bgmIndex = 0;
+    bgmAudio.addEventListener("ended", () => { if (bgmList.length) { bgmIndex = (bgmIndex + 1) % bgmList.length; playBgm(); } });
+    document.getElementById("bgmBtn").onclick = () => {
+      if (!bgmList.length) return;
+      if (bgmAudio.paused) { if (!bgmAudio.src) playBgm(); else bgmAudio.play().catch(() => {}); }
+      else bgmAudio.pause();
+      updateBgmBtn();
+    };
+    function startBgm(list) { if (!list || !list.length) return; bgmList = list; if (!bgmAudio.src) { bgmIndex = 0; playBgm(); } }
+    function playBgm() {
+      const tr = bgmList[bgmIndex]; if (!tr) return;
+      bgmAudio.src = `/asset/${encodeURIComponent(tr.id)}`;
+      document.getElementById("bgmTitle").textContent = "♪ " + (tr.title || "");
+      bgmAudio.play().then(updateBgmBtn).catch(updateBgmBtn);
+    }
+    function updateBgmBtn() { document.getElementById("bgmBtn").textContent = bgmAudio.paused ? "▶" : "⏸"; }
+
     const ws = new WebSocket(`ws://${location.host}/ws`);
     ws.onopen = () => ws.send(JSON.stringify({ type: "join", role: "VIEWER" }));
     ws.onmessage = (e) => handle(JSON.parse(e.data));
@@ -125,6 +149,7 @@
           document.getElementById("qr").src = "/qr";
           mode = msg.room?.mode?.type ?? "quiz";
           applyTheme(msg.room?.theme);
+          startBgm(msg.room?.media?.music);
           competitors.clear();
           (msg.room?.participants?.competitors ?? []).forEach((c) => competitors.set(c.id, c.name));
           renderLobby();
@@ -158,6 +183,12 @@
           break;
         case "scoreboard":
           renderScoreBoard(msg);
+          break;
+        case "music":
+          if (msg.action === "pause") bgmAudio.pause();
+          else if (msg.action === "resume" || msg.action === "play") bgmAudio.play().catch(() => {});
+          else if (msg.action === "skip" && bgmList.length) { bgmIndex = (bgmIndex + 1) % bgmList.length; playBgm(); }
+          updateBgmBtn();
           break;
       }
     }

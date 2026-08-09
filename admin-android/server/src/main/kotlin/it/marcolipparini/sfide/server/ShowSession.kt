@@ -234,6 +234,10 @@ class ShowSession(override val room: RoomDefinition) : GameSession {
 
     // ---- Passi interattivi --------------------------------------------------
 
+    override suspend fun music(command: String) {
+        broadcast(ServerState.Music(action = command))
+    }
+
     private fun isGenericInteractive(seg: Segment?): Boolean =
         seg is Segment.Quiz || seg is Segment.Voting || seg is Segment.Questionnaire
 

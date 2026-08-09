@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -106,6 +107,13 @@ private fun HostPanel() {
         Button(onClick = { scope.launch { session?.next() } }, modifier = Modifier.fillMaxWidth()) { Text("▶ Avanti") }
         Button(onClick = { scope.launch { session?.lock() } }, modifier = Modifier.fillMaxWidth()) { Text("🔒 Chiudi") }
         Button(onClick = { scope.launch { session?.reveal() } }, modifier = Modifier.fillMaxWidth()) { Text("🎉 Svela") }
+
+        Text("MUSICA", color = InkSoft, fontSize = 12.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { scope.launch { session?.music("pause") } }, modifier = Modifier.weight(1f)) { Text("⏸") }
+            OutlinedButton(onClick = { scope.launch { session?.music("resume") } }, modifier = Modifier.weight(1f)) { Text("▶") }
+            OutlinedButton(onClick = { scope.launch { session?.music("skip") } }, modifier = Modifier.weight(1f)) { Text("⏭") }
+        }
 
         Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = { HostService.stop(ctx) }, modifier = Modifier.fillMaxWidth()) { Text("Ferma la stanza") }

@@ -143,6 +143,14 @@ sealed interface ServerState {
         val assetId: String? = null,
     ) : ServerState
 
+    /** Comando per la musica di sottofondo (pause/resume/skip). */
+    @Serializable
+    @SerialName("music")
+    data class Music(
+        val action: String,
+        val trackId: String? = null,
+    ) : ServerState
+
     /** Classifica autosufficiente (con nomi) per le fasi Classifica/Finale. */
     @Serializable
     @SerialName("scoreboard")

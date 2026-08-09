@@ -108,5 +108,9 @@ pulsanti Prossima/Chiudi/Svela). Richiede l'Android SDK (`compileSdk 35`,
   - **media reali**: la fase Media mostra davvero l'immagine/audio/video servito
     dall'host (rotta `/asset/{id}`); nel builder l'admin **carica il file dal
     dispositivo** (copiato nella storage interna dell'app).
+  - **musica di sottofondo** che **continua tra le fasi**: playlist royalty-free di
+    default (tracce generate per Sfide, libere da copyright, in `assets/music/`),
+    controlli di regia pausa/riprendi/salta. Non sono inclusi brani protetti da
+    copyright; puoi aggiungere le tue tracce (su cui hai i diritti) col caricamento file.
 - **Stato**: funzioni complete. Spunti futuri in
   [`docs/architettura.md`](docs/architettura.md) (spettatori da remoto, Spotify).

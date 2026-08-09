@@ -243,4 +243,36 @@ object SampleRooms {
             ),
         )
     }
+
+    /** Playlist royalty-free di default (tracce generate per Sfide, libere da copyright). */
+    fun defaultPlaylist(): List<MusicTrack> {
+        val dir = System.getenv("SFIDE_MUSIC_DIR") ?: "assets/music"
+        return listOf(
+            MusicTrack(id = "m1", title = "Lounge", localPath = "$dir/lounge.wav", source = "Generata per Sfide — libera da copyright"),
+            MusicTrack(id = "m2", title = "Upbeat", localPath = "$dir/upbeat.wav", source = "Generata per Sfide — libera da copyright"),
+        )
+    }
+
+    /** Una serata con musica di sottofondo che continua tra le fasi. */
+    fun musicShow(): RoomDefinition = RoomDefinition(
+        meta = RoomMeta(title = "Serata con Musica", pin = "9500"),
+        mode = GameModeConfig.Quiz(questions = emptyList()),
+        participants = ParticipantsConfig(kind = CompetitorKind.INDIVIDUALS, competitors = emptyList()),
+        format = FormatConfig.AllVsAll(),
+        scoring = ScoringRules(),
+        media = MediaConfig(music = defaultPlaylist()),
+        timeline = listOf(
+            Segment.Title(id = "s1", title = "Serata con Musica", subtitle = "La musica continua tra le fasi"),
+            Segment.Quiz(
+                id = "s2",
+                title = "Quiz",
+                questions = listOf(
+                    Question("q1", "Quanto fa 2 + 2?", options = listOf(AnswerOption("a", "3"), AnswerOption("b", "4", correct = true))),
+                ),
+                answerTimeSeconds = 20,
+            ),
+            Segment.Standings(id = "s3", title = "Classifica"),
+            Segment.Final(id = "s4", title = "Fine"),
+        ),
+    )
 }

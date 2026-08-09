@@ -37,6 +37,7 @@ fun main() {
         "show" -> SampleRooms.showcase()
         "showtour" -> SampleRooms.tournamentShow()
         "showmedia" -> SampleRooms.mediaShow()
+        "showmusic" -> SampleRooms.musicShow()
         else -> SampleRooms.quizTournament()
     }
     printBanner(port)
@@ -91,6 +92,7 @@ fun Route.apiRoutes(session: GameSession, port: Int = DEFAULT_PORT, assets: Asse
     post("/admin/next") { session.next(); call.respondText("ok") }
     post("/admin/lock") { session.lock(); call.respondText("ok") }
     post("/admin/reveal") { session.reveal(); call.respondText("ok") }
+    post("/admin/music/{cmd}") { session.music(call.parameters["cmd"] ?: ""); call.respondText("ok") }
     get("/admin") { call.respondText(adminHtml(), ContentType.Text.Html) }
 
     get("/qr") {
@@ -167,11 +169,18 @@ private fun adminHtml(): String = """
     <button onclick="hit('next')">▶ Prossima domanda</button>
     <button onclick="hit('lock')">🔒 Chiudi risposte</button>
     <button onclick="hit('reveal')">🎉 Svela risultati</button>
+    <button onclick="mus('pause')">⏸ Pausa musica</button>
+    <button onclick="mus('resume')">▶ Riprendi musica</button>
+    <button onclick="mus('skip')">⏭ Salta traccia</button>
     <div id="log"></div>
     <script>
       async function hit(a){
         const r = await fetch('/admin/'+a, {method:'POST'});
         document.getElementById('log').textContent = a + ' → ' + (await r.text());
+      }
+      async function mus(c){
+        const r = await fetch('/admin/music/'+c, {method:'POST'});
+        document.getElementById('log').textContent = 'music '+c+' → ' + (await r.text());
       }
     </script></body></html>
 """.trimIndent()
