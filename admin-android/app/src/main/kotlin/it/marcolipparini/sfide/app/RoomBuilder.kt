@@ -139,6 +139,7 @@ enum class SegmentType(val label: String) {
     STANDINGS("Classifica"),
     QUIZ("Quiz"),
     VOTING("Votazione"),
+    TOURNAMENT("Torneo"),
     QUESTIONNAIRE("Questionario"),
     FINAL("Finale"),
 }
@@ -153,7 +154,7 @@ class SegmentDraft(val type: SegmentType) {
         if (type == SegmentType.QUIZ || type == SegmentType.QUESTIONNAIRE) add(QuestionDraft())
     }
     val prompts = mutableStateListOf<PromptDraft>().apply {
-        if (type == SegmentType.VOTING) add(PromptDraft())
+        if (type == SegmentType.VOTING || type == SegmentType.TOURNAMENT) add(PromptDraft())
     }
 }
 
@@ -190,6 +191,11 @@ fun buildTimelineRoom(
                     )
                 },
             )
+            SegmentType.TOURNAMENT -> Segment.Tournament(
+                id = sid,
+                title = s.title.ifBlank { "Torneo" },
+                prompt = tournamentPrompt(sid, s.prompts.firstOrNull()),
+            )
         }
     }
 
@@ -202,6 +208,17 @@ fun buildTimelineRoom(
         theme = Theme(paletteName = palette.name, primaryColor = palette.primary, backgroundColor = palette.background),
         interaction = SpectatorInteraction(canAnswer = true, canVote = true, requireName = true),
         timeline = timeline,
+    )
+}
+
+private fun tournamentPrompt(sid: String, draft: PromptDraft?): VotingPrompt {
+    if (draft == null || draft.title.isBlank()) return VotingPrompt("${sid}p0", "Sfida")
+    return VotingPrompt(
+        id = "${sid}p0",
+        title = draft.title.trim(),
+        criteria = draft.criteria.filter { it.label.isNotBlank() }.mapIndexed { k, c ->
+            VoteCriterion("${sid}c$k", c.label.trim(), c.weight.toDoubleOrNull() ?: 1.0)
+        },
     )
 }
 

@@ -37,6 +37,39 @@ class ShowSessionTest {
         ClientIntent.CastVote(turnId = turnId, targetId = target, values = mapOf("gusto" to value, "pres" to value)),
     )
 
+    private fun joinPin(pin: String, name: String) = EngineJson.encodeToString(
+        ClientIntent.serializer(),
+        ClientIntent.Join(pin = pin, name = name, role = ClientRole.SPECTATOR),
+    )
+
+    private fun voteMap(turnId: String, target: String, values: Map<String, Double>) = EngineJson.encodeToString(
+        ClientIntent.serializer(),
+        ClientIntent.CastVote(turnId = turnId, targetId = target, values = values),
+    )
+
+    @Test
+    fun `la fase Torneo elegge un campione e gli assegna il bonus`() = runBlocking {
+        val session = ShowSession(SampleRooms.tournamentShow())
+        val viewer = Captured("v"); session.addConnection(viewer.conn)
+        val voter = Captured("voter"); session.addConnection(voter.conn)
+        session.onIntent(voter.conn, joinPin("7000", "Ada"))
+
+        var guard = 0
+        while (session.phase != RoomPhase.FINISHED && guard++ < 40) {
+            session.next()
+            if (session.phase != RoomPhase.INPUT) continue
+            val vt = voter.received.filterIsInstance<ServerState.VoteTurn>().last()
+            val value = if (vt.competitorId == "t1") 10.0 else 2.0
+            val values = vt.criteria.associate { it.id to value }
+            session.onIntent(voter.conn, voteMap(vt.turnId, vt.competitorId, values))
+            session.reveal()
+        }
+
+        val finalBoard = viewer.received.filterIsInstance<ServerState.ScoreBoard>().last { it.isFinal }
+        assertEquals("t1", finalBoard.champion)
+        assertEquals(10.0, finalBoard.entries.first { it.id == "t1" }.score) // bonus al campione
+    }
+
     @Test
     fun `la timeline scorre le fasi e chiude con la classifica finale`() = runBlocking {
         val session = ShowSession(SampleRooms.showcase())

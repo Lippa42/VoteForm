@@ -164,7 +164,7 @@ private fun SegmentCard(seg: SegmentDraft, handle: Modifier, onRemove: () -> Uni
                 }
             }
             SegmentType.QUIZ, SegmentType.QUESTIONNAIRE -> QuestionsEditor(seg, quiz = seg.type == SegmentType.QUIZ)
-            SegmentType.VOTING -> PromptsEditor(seg)
+            SegmentType.VOTING, SegmentType.TOURNAMENT -> PromptsEditor(seg)
             SegmentType.STANDINGS, SegmentType.FINAL -> Unit
         }
     }

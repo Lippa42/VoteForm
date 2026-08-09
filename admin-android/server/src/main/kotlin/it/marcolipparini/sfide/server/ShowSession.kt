@@ -1,6 +1,8 @@
 package it.marcolipparini.sfide.server
 
 import it.marcolipparini.sfide.engine.EngineJson
+import it.marcolipparini.sfide.engine.bracket.Bracket
+import it.marcolipparini.sfide.engine.bracket.BracketEngine
 import it.marcolipparini.sfide.engine.history.MatchResult
 import it.marcolipparini.sfide.engine.model.Aggregation
 import it.marcolipparini.sfide.engine.model.Competitor
@@ -67,6 +69,19 @@ class ShowSession(override val room: RoomDefinition) : GameSession {
     private var curCompetitorId: String? = null
     private var lastState: List<ServerState> = emptyList()
 
+    // Stato della fase Torneo (attivo solo dentro un Segment.Tournament).
+    private val competitorsById = competitors.associateBy { it.id }
+    private var bracket: Bracket? = null
+    private var tourMatchId: String? = null
+    private val tourQueue = ArrayDeque<Competitor>()
+    private var tourCurrent: Competitor? = null
+    private val tourScores = HashMap<String, Double>()
+
+    // "Pending" impostati sotto lock e consumati dopo il broadcast.
+    private var pendingSchedSeconds = 0
+    private var pendingSchedTurnId: String? = null
+    private var pendingFinished: MatchResult? = null
+
     private val segment get() = segments.getOrNull(cursor)
 
     // ---- Connessioni --------------------------------------------------------
@@ -132,7 +147,8 @@ class ShowSession(override val room: RoomDefinition) : GameSession {
 
     private suspend fun handleVote(conn: Connection, vote: ClientIntent.CastVote) {
         val progress = mutex.withLock {
-            if (segment !is Segment.Voting) return
+            val seg = segment
+            if (seg !is Segment.Voting && seg !is Segment.Tournament) return
             if (phase != RoomPhase.INPUT || vote.turnId != curTurnId) return
             if (vote.targetId != curCompetitorId || conn.id !in players) return
             votes[conn.id] = vote.values
@@ -145,46 +161,54 @@ class ShowSession(override val room: RoomDefinition) : GameSession {
 
     override suspend fun next() {
         timerJob?.cancel()
-        var finished: MatchResult? = null
-        var schedSeconds = 0
-        var schedTurnId: String? = null
+        pendingSchedSeconds = 0; pendingSchedTurnId = null; pendingFinished = null
         val msgs = mutex.withLock {
             val seg = segment
-            if (seg != null && isInteractive(seg) && step + 1 < stepCount(seg)) {
-                step++
-                val r = beginStep(seg)
-                schedSeconds = r.second; schedTurnId = r.third
-                r.first
-            } else {
-                cursor++
-                step = -1
-                val next = segment
-                when {
-                    next == null -> {
-                        phase = RoomPhase.FINISHED
-                        finished = buildResult()
-                        listOf(finalScoreboard())
-                    }
-                    isInteractive(next) -> {
-                        step = 0
-                        val r = beginStep(next)
-                        schedSeconds = r.second; schedTurnId = r.third
-                        r.first
-                    }
-                    else -> presentationMessages(next)
+            when {
+                seg is Segment.Tournament && tournamentActive() -> advanceTournament(seg)
+                seg != null && isGenericInteractive(seg) && step + 1 < stepCount(seg) -> {
+                    step++
+                    beginStepMessages(seg)
+                }
+                else -> {
+                    cursor++
+                    step = -1
+                    resetTournament()
+                    enterSegment()
                 }
             }.also { lastState = it }
         }
         msgs.forEach { broadcast(it) }
-        schedTurnId?.let { if (schedSeconds > 0) scheduleAutoLock(schedSeconds, it) }
-        finished?.let { onFinish?.invoke(it) }
+        pendingSchedTurnId?.let { if (pendingSchedSeconds > 0) scheduleAutoLock(pendingSchedSeconds, it) }
+        pendingFinished?.let { onFinish?.invoke(it) }
+    }
+
+    /** Entra nel segmento corrente ([cursor]); imposta gli eventuali pending. */
+    private fun enterSegment(): List<ServerState> {
+        val seg = segment ?: run {
+            phase = RoomPhase.FINISHED
+            pendingFinished = buildResult()
+            return listOf(finalScoreboard())
+        }
+        return when {
+            seg is Segment.Tournament -> initTournament(seg)
+            isGenericInteractive(seg) -> { step = 0; beginStepMessages(seg) }
+            else -> presentationMessages(seg)
+        }
+    }
+
+    private fun beginStepMessages(seg: Segment): List<ServerState> {
+        val r = beginStep(seg)
+        pendingSchedSeconds = r.second
+        pendingSchedTurnId = r.third
+        return r.first
     }
 
     override suspend fun lock() {
         timerJob?.cancel()
         val msg = mutex.withLock {
             val seg = segment
-            if (!isInteractive(seg) || phase != RoomPhase.INPUT) return
+            if (!(isGenericInteractive(seg) || seg is Segment.Tournament) || phase != RoomPhase.INPUT) return
             phase = RoomPhase.LOCKED
             lockedTurn(seg!!)
         } ?: return
@@ -201,6 +225,7 @@ class ShowSession(override val room: RoomDefinition) : GameSession {
                 is Segment.Quiz -> revealQuiz(seg)
                 is Segment.Questionnaire -> revealQuestionnaire(seg)
                 is Segment.Voting -> revealVoting(seg)
+                is Segment.Tournament -> revealTournament(seg)
                 else -> return
             }.also { lastState = it }
         }
@@ -209,7 +234,7 @@ class ShowSession(override val room: RoomDefinition) : GameSession {
 
     // ---- Passi interattivi --------------------------------------------------
 
-    private fun isInteractive(seg: Segment?): Boolean =
+    private fun isGenericInteractive(seg: Segment?): Boolean =
         seg is Segment.Quiz || seg is Segment.Voting || seg is Segment.Questionnaire
 
     private fun stepCount(seg: Segment): Int = when (seg) {
@@ -261,6 +286,7 @@ class ShowSession(override val room: RoomDefinition) : GameSession {
             val nc = competitors.size.coerceAtLeast(1)
             voteTurn(seg, seg.prompts[step / nc], competitors[step % nc], true)
         }
+        is Segment.Tournament -> tourVoteTurn(seg, true)
         else -> null
     }
 
@@ -292,6 +318,98 @@ class ShowSession(override val room: RoomDefinition) : GameSession {
         val score = aggregate(prompt.criteria)
         scoreboard[comp.id] = (scoreboard[comp.id] ?: 0.0) + score
         return listOf(ServerState.Reveal(curTurnId, emptyList(), subjectId = comp.id, subjectScore = round2(score)))
+    }
+
+    // ---- Fase Torneo --------------------------------------------------------
+
+    private fun tournamentActive(): Boolean {
+        val b = bracket ?: return false
+        return tourQueue.isNotEmpty() || BracketEngine.nextMatch(b) != null
+    }
+
+    private fun resetTournament() {
+        bracket = null; tourMatchId = null; tourQueue.clear(); tourCurrent = null; tourScores.clear()
+    }
+
+    private fun initTournament(seg: Segment.Tournament): List<ServerState> {
+        bracket = BracketEngine.create(competitors.map { it.id }.shuffled())
+        tourScores.clear(); tourQueue.clear(); tourCurrent = null; tourMatchId = null
+        return startTournamentMatchOrEnd(seg)
+    }
+
+    private fun advanceTournament(seg: Segment.Tournament): List<ServerState> {
+        if (tourQueue.isNotEmpty()) {
+            tourCurrent = tourQueue.removeFirst()
+            beginTournamentSubject(seg)
+            return listOf(bracketState(), tourVoteTurn(seg, false), ServerState.Progress(curTurnId, 0, players.size))
+        }
+        return startTournamentMatchOrEnd(seg)
+    }
+
+    private fun startTournamentMatchOrEnd(seg: Segment.Tournament): List<ServerState> {
+        val b = bracket!!
+        val match = BracketEngine.nextMatch(b)
+        if (match == null) {
+            // Torneo finito: passa alla fase successiva della timeline.
+            cursor++; step = -1; resetTournament()
+            return enterSegment()
+        }
+        tourMatchId = match.id
+        tourScores.clear()
+        tourQueue.addAll(listOfNotNull(competitorsById[match.slotA], competitorsById[match.slotB]))
+        tourCurrent = tourQueue.removeFirst()
+        beginTournamentSubject(seg)
+        return listOf(bracketState(), tourVoteTurn(seg, false), ServerState.Progress(curTurnId, 0, players.size))
+    }
+
+    private fun beginTournamentSubject(seg: Segment.Tournament) {
+        votes.clear()
+        phase = RoomPhase.INPUT
+        val comp = tourCurrent!!
+        curTurnId = "${seg.id}:${tourMatchId}:${comp.id}"
+        curCompetitorId = comp.id
+        pendingSchedSeconds = seg.answerTimeSeconds
+        pendingSchedTurnId = curTurnId
+    }
+
+    private fun revealTournament(seg: Segment.Tournament): List<ServerState> {
+        val comp = tourCurrent ?: return emptyList()
+        val score = aggregate(seg.prompt.criteria)
+        tourScores[comp.id] = score
+        val out = mutableListOf<ServerState>(ServerState.Reveal(curTurnId, emptyList(), subjectId = comp.id, subjectScore = round2(score)))
+        if (tourQueue.isEmpty() && tourScores.size >= 2 && tourMatchId != null && bracket != null) {
+            val winner = tourScores.maxByOrNull { it.value }!!.key
+            bracket = BracketEngine.recordWinner(bracket!!, tourMatchId!!, winner)
+            bracket!!.champion?.let { scoreboard[it] = (scoreboard[it] ?: 0.0) + seg.winnerBonus }
+            out += bracketState()
+        }
+        return out
+    }
+
+    private fun tourVoteTurn(seg: Segment.Tournament, locked: Boolean): ServerState.VoteTurn {
+        val comp = tourCurrent!!
+        val total = bracket?.matches?.size ?: 0
+        val decided = bracket?.matches?.count { it.winner != null } ?: 0
+        return ServerState.VoteTurn(
+            turnId = curTurnId,
+            phase = phase,
+            promptTitle = seg.prompt.title,
+            competitorId = comp.id,
+            competitorName = comp.name,
+            criteria = seg.prompt.criteria.map { VoteCriterionView(it.id, it.label, it.weight) },
+            scaleMin = seg.voteScale.min,
+            scaleMax = seg.voteScale.max,
+            scaleStep = seg.voteScale.step,
+            index = (decided + 1).coerceAtMost(total.coerceAtLeast(1)),
+            total = total,
+            timerSeconds = seg.answerTimeSeconds,
+            locked = locked,
+        )
+    }
+
+    private fun bracketState(): ServerState.Bracket {
+        val b = bracket ?: return ServerState.Bracket(emptyList())
+        return ServerState.Bracket(b.matches, b.champion, BracketEngine.nextMatch(b)?.id)
     }
 
     // ---- Fasi di presentazione ----------------------------------------------
@@ -406,7 +524,7 @@ class ShowSession(override val room: RoomDefinition) : GameSession {
     private suspend fun autoLock(turnId: String) {
         val msg = mutex.withLock {
             val seg = segment
-            if (!isInteractive(seg) || phase != RoomPhase.INPUT || curTurnId != turnId) return
+            if (!(isGenericInteractive(seg) || seg is Segment.Tournament) || phase != RoomPhase.INPUT || curTurnId != turnId) return
             phase = RoomPhase.LOCKED
             lockedTurn(seg!!)
         } ?: return

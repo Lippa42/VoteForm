@@ -75,6 +75,19 @@ sealed interface Segment {
         val answerTimeSeconds: Int = 30,
     ) : Segment
 
+    /** Fase torneo a eliminazione diretta tra i concorrenti (con tabellone). */
+    @Serializable
+    @SerialName("tournament")
+    data class Tournament(
+        override val id: String,
+        override val title: String,
+        val prompt: VotingPrompt,
+        val voteScale: VoteScale = VoteScale(min = 1.0, max = 10.0, step = 0.5),
+        val answerTimeSeconds: Int = 30,
+        /** Bonus assegnato al campione nello scoreboard condiviso. */
+        val winnerBonus: Double = 10.0,
+    ) : Segment
+
     /** Schermata finale: classifica definitiva e vincitore. */
     @Serializable
     @SerialName("final")

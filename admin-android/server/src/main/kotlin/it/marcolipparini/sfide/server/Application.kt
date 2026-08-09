@@ -32,6 +32,7 @@ fun main() {
         "knockout" -> SampleRooms.cookingKnockout()
         "survey" -> SampleRooms.quickSurvey()
         "show" -> SampleRooms.showcase()
+        "showtour" -> SampleRooms.tournamentShow()
         else -> SampleRooms.quizTournament()
     }
     printBanner(port)

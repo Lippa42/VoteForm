@@ -187,4 +187,36 @@ object SampleRooms {
             Segment.Final(id = "s5", title = "Gran finale"),
         ),
     )
+
+    /** Una serata con una fase Torneo a eliminazione nella timeline. */
+    fun tournamentShow(): RoomDefinition = RoomDefinition(
+        meta = RoomMeta(title = "Gran Torneo", pin = "7000"),
+        mode = GameModeConfig.Quiz(questions = emptyList()),
+        participants = ParticipantsConfig(
+            kind = CompetitorKind.TEAMS,
+            competitors = listOf(
+                Competitor("t1", "Basilico"),
+                Competitor("t2", "Peperoncino"),
+                Competitor("t3", "Zenzero"),
+                Competitor("t4", "Curcuma"),
+            ),
+        ),
+        format = FormatConfig.AllVsAll(),
+        scoring = ScoringRules(aggregation = Aggregation.WEIGHTED_MEAN),
+        interaction = SpectatorInteraction(canAnswer = false, canVote = true, requireName = true),
+        timeline = listOf(
+            Segment.Title(id = "s1", title = "Gran Torneo", subtitle = "Che vinca il migliore"),
+            Segment.Tournament(
+                id = "s2",
+                title = "Torneo a eliminazione",
+                prompt = VotingPrompt(
+                    id = "tp",
+                    title = "Sfida decisiva",
+                    criteria = listOf(VoteCriterion("g", "Giudizio", 1.0)),
+                ),
+                answerTimeSeconds = 20,
+            ),
+            Segment.Final(id = "s3", title = "Finale"),
+        ),
+    )
 }
