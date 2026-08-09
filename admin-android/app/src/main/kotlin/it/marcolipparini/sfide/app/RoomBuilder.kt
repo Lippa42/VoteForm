@@ -14,7 +14,9 @@ import it.marcolipparini.sfide.engine.model.ParticipantsConfig
 import it.marcolipparini.sfide.engine.model.Question
 import it.marcolipparini.sfide.engine.model.RoomDefinition
 import it.marcolipparini.sfide.engine.model.RoomMeta
+import it.marcolipparini.sfide.engine.model.MediaKind
 import it.marcolipparini.sfide.engine.model.ScoringRules
+import it.marcolipparini.sfide.engine.model.Segment
 import it.marcolipparini.sfide.engine.model.SpectatorInteraction
 import it.marcolipparini.sfide.engine.model.Theme
 import it.marcolipparini.sfide.engine.model.VoteCriterion
@@ -128,3 +130,89 @@ fun buildRoom(
         )
     }
 }
+
+// ---- Timeline (fasi componibili) --------------------------------------------
+
+enum class SegmentType(val label: String) {
+    TITLE("Titolo"),
+    MEDIA("Media"),
+    STANDINGS("Classifica"),
+    QUIZ("Quiz"),
+    VOTING("Votazione"),
+    QUESTIONNAIRE("Questionario"),
+    FINAL("Finale"),
+}
+
+/** Bozza di una fase nella timeline (stato osservabile per Compose). */
+class SegmentDraft(val type: SegmentType) {
+    val id: String = UUID.randomUUID().toString()
+    var title by mutableStateOf(type.label)
+    var subtitle by mutableStateOf("")            // sottotitolo (Titolo) o didascalia (Media)
+    var mediaKind by mutableStateOf(MediaKind.IMAGE)
+    val questions = mutableStateListOf<QuestionDraft>().apply {
+        if (type == SegmentType.QUIZ || type == SegmentType.QUESTIONNAIRE) add(QuestionDraft())
+    }
+    val prompts = mutableStateListOf<PromptDraft>().apply {
+        if (type == SegmentType.VOTING) add(PromptDraft())
+    }
+}
+
+/** Assembla una RoomDefinition con timeline dai draft. */
+fun buildTimelineRoom(
+    title: String,
+    pin: String,
+    palette: Palette,
+    competitors: List<CompetitorDraft>,
+    segments: List<SegmentDraft>,
+): RoomDefinition {
+    val comps = competitors.filter { it.name.isNotBlank() }
+        .mapIndexed { i, c -> Competitor(id = "c$i", name = c.name.trim()) }
+
+    val timeline: List<Segment> = segments.mapIndexed { i, s ->
+        val sid = "seg$i"
+        when (s.type) {
+            SegmentType.TITLE -> Segment.Title(sid, s.title.ifBlank { "Titolo" }, s.subtitle)
+            SegmentType.MEDIA -> Segment.Media(sid, s.title.ifBlank { "Media" }, s.mediaKind, caption = s.subtitle)
+            SegmentType.STANDINGS -> Segment.Standings(sid, s.title.ifBlank { "Classifica" })
+            SegmentType.FINAL -> Segment.Final(sid, s.title.ifBlank { "Finale" })
+            SegmentType.QUIZ -> Segment.Quiz(sid, s.title.ifBlank { "Quiz" }, questionsOf(sid, s.questions))
+            SegmentType.QUESTIONNAIRE -> Segment.Questionnaire(sid, s.title.ifBlank { "Questionario" }, questionsOf(sid, s.questions))
+            SegmentType.VOTING -> Segment.Voting(
+                sid,
+                s.title.ifBlank { "Votazione" },
+                prompts = s.prompts.filter { it.title.isNotBlank() }.mapIndexed { j, p ->
+                    VotingPrompt(
+                        id = "${sid}p$j",
+                        title = p.title.trim(),
+                        criteria = p.criteria.filter { it.label.isNotBlank() }.mapIndexed { k, c ->
+                            VoteCriterion("${sid}p${j}c$k", c.label.trim(), c.weight.toDoubleOrNull() ?: 1.0)
+                        },
+                    )
+                },
+            )
+        }
+    }
+
+    return RoomDefinition(
+        meta = RoomMeta(title = title.ifBlank { "Serata" }, pin = pin.ifBlank { "0000" }, id = UUID.randomUUID().toString()),
+        mode = GameModeConfig.Quiz(questions = emptyList()), // segnaposto: la timeline guida
+        participants = ParticipantsConfig(CompetitorKind.TEAMS, comps),
+        format = FormatConfig.AllVsAll(),
+        scoring = ScoringRules(aggregation = Aggregation.WEIGHTED_MEAN),
+        theme = Theme(paletteName = palette.name, primaryColor = palette.primary, backgroundColor = palette.background),
+        interaction = SpectatorInteraction(canAnswer = true, canVote = true, requireName = true),
+        timeline = timeline,
+    )
+}
+
+private fun questionsOf(sid: String, drafts: List<QuestionDraft>): List<Question> =
+    drafts.filter { it.text.isNotBlank() }.mapIndexed { j, q ->
+        Question(
+            id = "${sid}q$j",
+            text = q.text.trim(),
+            options = q.options.filter { it.text.isNotBlank() }.mapIndexed { k, o ->
+                AnswerOption("${sid}q${j}o$k", o.text.trim(), correct = o.correct)
+            },
+            points = q.points.toIntOrNull() ?: 100,
+        )
+    }

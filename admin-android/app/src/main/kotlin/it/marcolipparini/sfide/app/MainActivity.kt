@@ -59,7 +59,7 @@ private fun AppRoot() {
 
     when {
         info.running -> HostPanel()
-        screen == "builder" -> BuilderScreen(
+        screen == "builder" -> TimelineBuilderScreen(
             onCancel = { screen = "home" },
             onSaveTemplate = { room -> scope.launch { store.saveTemplate(room) }; screen = "home" },
             onStart = { room -> HostService.startWith(ctx, room) },

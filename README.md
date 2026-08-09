@@ -89,9 +89,9 @@ pulsanti Prossima/Chiudi/Svela). Richiede l'Android SDK (`compileSdk 35`,
     `GameSession`, client `viewer`/`spectator` bimodali) con test d'integrazione e
     smoke test su browser reale;
   - **app Android host** (`app`) che compila in APK, avvia il server embedded in
-    foreground service, e offre in Compose: **creazione stanza guidata** (Quiz o
-    Sfida a voti, con concorrenti, domande/opzioni o prove/criteri), **template
-    salvati** (Room DB) e **regia**.
+    foreground service, e offre in Compose: **composizione della stanza come
+    timeline** (fasi **trascinabili**: Titolo, Media, Classifica, Quiz, Votazione,
+    Questionario, Finale), **template salvati** (Room DB) e **regia**.
   - **persistenza** (`persistence`, Room DB): salvataggio dei template di stanza e
     dello storico partite in locale.
   - **timer**: countdown su TV e telefono con chiusura automatica allo scadere.
