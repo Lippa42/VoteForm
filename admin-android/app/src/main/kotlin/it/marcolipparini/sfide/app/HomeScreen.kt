@@ -13,11 +13,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +42,7 @@ fun HomeScreen(
 ) {
     val templates by store.templates.collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
+    var relay by remember { mutableStateOf(HostController.relayUrl ?: "") }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
@@ -47,6 +52,15 @@ fun HomeScreen(
 
         Button(onClick = onNew, modifier = Modifier.fillMaxWidth()) { Text("➕ Crea nuova stanza") }
         OutlinedButton(onClick = onHistory, modifier = Modifier.fillMaxWidth()) { Text("📊 Storico partite") }
+
+        OutlinedTextField(
+            value = relay,
+            onValueChange = { relay = it; HostController.relayUrl = it.trim().ifBlank { null } },
+            label = { Text("URL relay per spettatori da remoto (opzionale)") },
+            placeholder = { Text("es. wss://mio-relay.fly.dev") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
 
         Text("Esempi rapidi", color = InkSoft, fontSize = 12.sp)
         OutlinedButton(onClick = { onStart(SampleRooms.quizTournament()) }, modifier = Modifier.fillMaxWidth()) {

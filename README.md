@@ -81,6 +81,38 @@ pulsanti Prossima/Chiudi/Svela). Richiede l'Android SDK (`compileSdk 35`,
 ./gradlew :app:assembleDebug   # produce app/build/outputs/apk/debug/app-debug.apk
 ```
 
+## Spettatori da remoto (relay)
+
+Per far collegare Visualizzatore e Spettatori **da reti diverse** (non la WiFi
+dell'host), c'è un **relay** leggero: host e client si connettono entrambi **in
+uscita** verso il relay (quindi il NAT del telefono non è un problema); il relay
+**inoltra solo i messaggi**, tutta la logica resta sull'host. Serve anche i client
+web.
+
+Prova in locale (relay + host + browser sulla stessa macchina):
+
+```bash
+# 1) avvia il relay (serve i client web e fa da ponte)
+PORT=9090 ./gradlew :relay:run
+# 2) in un altro terminale, avvia l'host collegato al relay
+PORT=8080 ROOM=show RELAY_URL=ws://localhost:9090 ROOM_CODE=demo ./gradlew :server:run
+# 3) apri i client PASSANDO dal relay:
+#    http://localhost:9090/viewer/index.html?room=demo
+#    http://localhost:9090/spectator/index.html?room=demo   (PIN della stanza)
+#    regia sull'host: http://localhost:8080/admin
+```
+
+Deploy del relay (una volta): impacchetta ed esegui su un servizio economico
+(VPS, Fly.io, Railway…):
+
+```bash
+./gradlew :relay:installDist         # crea relay/build/install/relay (avviabile con bin/relay)
+```
+
+Poi nell'app Android inserisci l'**URL del relay** (`wss://tuo-relay…`) nel campo
+in Home: l'host si collegherà al relay e gli spettatori useranno
+`https://tuo-relay/spectator/index.html?room=<PIN>`.
+
 ## Stato
 
 - **Fatto e verificato**:
@@ -112,5 +144,8 @@ pulsanti Prossima/Chiudi/Svela). Richiede l'Android SDK (`compileSdk 35`,
     default (tracce generate per Sfide, libere da copyright, in `assets/music/`),
     controlli di regia pausa/riprendi/salta. Non sono inclusi brani protetti da
     copyright; puoi aggiungere le tue tracce (su cui hai i diritti) col caricamento file.
+  - **spettatori da remoto** (`relay`): un ponte WebSocket leggero (host e client
+    connessi in uscita, oltre il NAT) inoltra i messaggi senza logica di gioco;
+    percorso remoto verificato con smoke su browser reale.
 - **Stato**: funzioni complete. Spunti futuri in
   [`docs/architettura.md`](docs/architettura.md) (spettatori da remoto, Spotify).

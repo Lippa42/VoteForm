@@ -21,6 +21,8 @@ import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import it.marcolipparini.sfide.engine.samples.SampleRooms
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import java.io.File
 import java.net.Inet4Address
 import java.net.NetworkInterface
@@ -40,9 +42,15 @@ fun main() {
         "showmusic" -> SampleRooms.musicShow()
         else -> SampleRooms.quizTournament()
     }
+    val session = sessionFor(room)
     printBanner(port)
+    System.getenv("RELAY_URL")?.let { relayUrl ->
+        val code = System.getenv("ROOM_CODE") ?: room.meta.pin
+        RelayHost(session, relayUrl, code).start(CoroutineScope(Dispatchers.IO))
+        println("  Relay: host collegato a $relayUrl (room=$code) — client remoti: <relay>/spectator/index.html?room=$code")
+    }
     embeddedServer(CIO, port = port, host = "0.0.0.0") {
-        sfideModule(session = sessionFor(room), port = port, assets = RoomAssetResolver(room))
+        sfideModule(session = session, port = port, assets = RoomAssetResolver(room))
     }.start(wait = true)
 }
 

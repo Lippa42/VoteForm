@@ -98,7 +98,10 @@
     function connect() {
       myName = document.getElementById("name").value.trim() || "Ospite";
       const pin = document.getElementById("pin").value.trim();
-      ws = new WebSocket(`ws://${location.host}/ws`);
+      const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
+      const room = params.get("room");
+      const wsUrl = room ? `${wsProto}//${location.host}/client?room=${encodeURIComponent(room)}` : `${wsProto}//${location.host}/ws`;
+      ws = new WebSocket(wsUrl);
       ws.onopen = () => ws.send(JSON.stringify({ type: "join", role: "SPECTATOR", name: myName, pin }));
       ws.onmessage = (e) => handle(JSON.parse(e.data));
       ws.onclose = () => setGame(`<div class="center muted">Connessione chiusa.</div>`);

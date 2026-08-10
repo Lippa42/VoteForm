@@ -10,6 +10,7 @@ import it.marcolipparini.sfide.engine.samples.SampleRooms
 import it.marcolipparini.sfide.server.DEFAULT_PORT
 import it.marcolipparini.sfide.server.GameSession
 import it.marcolipparini.sfide.persistence.SfideStore
+import it.marcolipparini.sfide.server.RelayHost
 import it.marcolipparini.sfide.server.RoomAssetResolver
 import it.marcolipparini.sfide.server.localIp
 import it.marcolipparini.sfide.server.sessionFor
@@ -40,6 +41,10 @@ object HostController {
     private var engine: ApplicationEngine? = null
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** URL WebSocket del relay per spettatori da remoto (vuoto = solo LAN). */
+    @Volatile
+    var relayUrl: String? = null
+
     /** Sessione attiva: la regia (UI Compose) la usa per far avanzare le fasi. */
     var session: GameSession? = null
         private set
@@ -63,6 +68,10 @@ object HostController {
         engine = embeddedServer(CIO, port = port, host = "0.0.0.0") {
             sfideModule(session = gameSession, port = port, assets = assetResolver, staticRoutes = { assetStatic(webAssets) })
         }.also { it.start(wait = false) }
+        // Modalità remota: l'host si collega anche al relay (in uscita, oltre il NAT).
+        relayUrl?.takeIf { it.isNotBlank() }?.let { url ->
+            RelayHost(gameSession, url.trim(), room.meta.pin).start(ioScope)
+        }
         _state.value = HostInfo(
             running = true,
             ip = localIp(),

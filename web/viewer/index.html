@@ -138,7 +138,10 @@
     }
     function updateBgmBtn() { document.getElementById("bgmBtn").textContent = bgmAudio.paused ? "▶" : "⏸"; }
 
-    const ws = new WebSocket(`ws://${location.host}/ws`);
+    const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
+    const room = new URLSearchParams(location.search).get("room");
+    const wsUrl = room ? `${wsProto}//${location.host}/client?room=${encodeURIComponent(room)}` : `${wsProto}//${location.host}/ws`;
+    const ws = new WebSocket(wsUrl);
     ws.onopen = () => ws.send(JSON.stringify({ type: "join", role: "VIEWER" }));
     ws.onmessage = (e) => handle(JSON.parse(e.data));
 

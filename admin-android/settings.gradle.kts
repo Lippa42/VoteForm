@@ -28,3 +28,7 @@ include(":app")
 
 // Persistenza locale (Room DB): template di stanza + storico partite.
 include(":persistence")
+
+// Relay WebSocket (JVM) per spettatori da remoto: inoltra i messaggi tra host e
+// client senza contenere logica di gioco. Da deployare su un servizio economico.
+include(":relay")
