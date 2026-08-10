@@ -70,7 +70,7 @@ object HostController {
         }.also { it.start(wait = false) }
         // Modalità remota: l'host si collega anche al relay (in uscita, oltre il NAT).
         relayUrl?.takeIf { it.isNotBlank() }?.let { url ->
-            RelayHost(gameSession, url.trim(), room.meta.pin).start(ioScope)
+            RelayHost(gameSession, url.trim(), room.meta.pin, assetResolver).start(ioScope)
         }
         _state.value = HostInfo(
             running = true,

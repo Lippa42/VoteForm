@@ -25,4 +25,17 @@ sealed interface RelayFrame {
     /** Host → Relay: invia il messaggio grezzo `d` al client `c`. */
     @Serializable @SerialName("to")
     data class To(val c: String, val d: String) : RelayFrame
+
+    /** Relay → Host: richiesta di un asset (media/musica) con id di correlazione `r`. */
+    @Serializable @SerialName("asset_req")
+    data class AssetReq(val r: String, val id: String) : RelayFrame
+
+    /** Host → Relay: risposta con i byte in base64 (o notFound). */
+    @Serializable @SerialName("asset_res")
+    data class AssetRes(
+        val r: String,
+        val ct: String? = null,
+        val b: String? = null,
+        val notFound: Boolean = false,
+    ) : RelayFrame
 }

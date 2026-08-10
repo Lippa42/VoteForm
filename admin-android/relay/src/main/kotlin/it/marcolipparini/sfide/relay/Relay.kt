@@ -3,9 +3,13 @@ package it.marcolipparini.sfide.relay
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.application.install
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.http.content.staticFiles
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
@@ -18,7 +22,10 @@ import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import it.marcolipparini.sfide.engine.EngineJson
 import it.marcolipparini.sfide.engine.protocol.RelayFrame
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
+import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -32,6 +39,7 @@ private class Room {
     @Volatile
     var host: WebSocketSession? = null
     val clients = ConcurrentHashMap<String, WebSocketSession>()
+    val pendingAssets = ConcurrentHashMap<String, CompletableDeferred<RelayFrame.AssetRes>>()
 }
 
 private val rooms = ConcurrentHashMap<String, Room>()
@@ -43,7 +51,7 @@ fun main() {
 }
 
 fun Application.relayModule() {
-    install(WebSockets)
+    install(WebSockets) { maxFrameSize = 16L * 1024 * 1024 }
     routing {
         webSocket("/host") {
             val code = call.request.queryParameters["room"]
@@ -53,8 +61,11 @@ fun Application.relayModule() {
             try {
                 for (frame in incoming) {
                     if (frame is Frame.Text) {
-                        val f = decode(frame.readText())
-                        if (f is RelayFrame.To) room.clients[f.c]?.send(Frame.Text(f.d))
+                        when (val f = decode(frame.readText())) {
+                            is RelayFrame.To -> room.clients[f.c]?.send(Frame.Text(f.d))
+                            is RelayFrame.AssetRes -> room.pendingAssets.remove(f.r)?.complete(f)
+                            else -> Unit
+                        }
                     }
                 }
             } finally {
@@ -83,6 +94,27 @@ fun Application.relayModule() {
             } finally {
                 room.clients.remove(cid)
                 room.host?.runCatching { send(Frame.Text(encode(RelayFrame.Leave(cid)))) }
+            }
+        }
+
+        get("/asset/{id}") {
+            val id = call.parameters["id"]
+            val room = call.request.queryParameters["room"]?.let { rooms[it] }
+            val host = room?.host
+            if (id == null || room == null || host == null) {
+                call.respond(HttpStatusCode.NotFound)
+                return@get
+            }
+            val reqId = UUID.randomUUID().toString()
+            val deferred = CompletableDeferred<RelayFrame.AssetRes>()
+            room.pendingAssets[reqId] = deferred
+            runCatching { host.send(Frame.Text(encode(RelayFrame.AssetReq(reqId, id)))) }
+            val res = withTimeoutOrNull(15_000) { deferred.await() }
+            room.pendingAssets.remove(reqId)
+            if (res == null || res.notFound || res.b == null) {
+                call.respond(HttpStatusCode.NotFound)
+            } else {
+                call.respondBytes(Base64.getDecoder().decode(res.b), ContentType.parse(res.ct ?: "application/octet-stream"))
             }
         }
 

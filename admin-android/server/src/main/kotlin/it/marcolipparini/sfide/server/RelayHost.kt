@@ -13,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -25,8 +26,9 @@ class RelayHost(
     private val session: GameSession,
     private val relayWsUrl: String,
     private val roomCode: String,
+    private val assets: AssetResolver? = null,
 ) {
-    private val client = HttpClient(CIO) { install(WebSockets) }
+    private val client = HttpClient(CIO) { install(WebSockets) { maxFrameSize = 16L * 1024 * 1024 } }
     private val connections = ConcurrentHashMap<String, Connection>()
     private val sendMutex = Mutex()
     private var send: (suspend (String) -> Unit)? = null
@@ -65,6 +67,15 @@ class RelayHost(
             is RelayFrame.Leave -> {
                 connections.remove(frame.c)
                 session.removeConnection(frame.c)
+            }
+            is RelayFrame.AssetReq -> {
+                val data = assets?.open(frame.id)
+                val res = if (data == null) {
+                    RelayFrame.AssetRes(frame.r, notFound = true)
+                } else {
+                    RelayFrame.AssetRes(frame.r, ct = data.contentType, b = Base64.getEncoder().encodeToString(data.bytes))
+                }
+                send?.invoke(EngineJson.encodeToString(RelayFrame.serializer(), res))
             }
             else -> Unit
         }

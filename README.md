@@ -113,6 +113,11 @@ Poi nell'app Android inserisci l'**URL del relay** (`wss://tuo-relay…`) nel ca
 in Home: l'host si collegherà al relay e gli spettatori useranno
 `https://tuo-relay/spectator/index.html?room=<PIN>`.
 
+Anche **immagini e musica** funzionano da remoto: il relay fa da proxy per gli
+asset (`/asset/{id}?room=<PIN>`), chiedendoli all'host via WebSocket. Adatto a
+immagini e audio; video molto grandi potrebbero richiedere lo *streaming a
+blocchi* (evoluzione futura).
+
 ## Stato
 
 - **Fatto e verificato**:

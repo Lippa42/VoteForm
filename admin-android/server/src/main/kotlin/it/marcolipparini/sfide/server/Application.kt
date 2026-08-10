@@ -46,7 +46,7 @@ fun main() {
     printBanner(port)
     System.getenv("RELAY_URL")?.let { relayUrl ->
         val code = System.getenv("ROOM_CODE") ?: room.meta.pin
-        RelayHost(session, relayUrl, code).start(CoroutineScope(Dispatchers.IO))
+        RelayHost(session, relayUrl, code, RoomAssetResolver(room)).start(CoroutineScope(Dispatchers.IO))
         println("  Relay: host collegato a $relayUrl (room=$code) — client remoti: <relay>/spectator/index.html?room=$code")
     }
     embeddedServer(CIO, port = port, host = "0.0.0.0") {

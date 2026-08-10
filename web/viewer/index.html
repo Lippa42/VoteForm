@@ -119,6 +119,12 @@
       if (theme.backgroundColor) r.setProperty("--bg", theme.backgroundColor);
     }
 
+    // In modalità relay gli asset passano dal relay (serve il room code); in LAN è diretto.
+    function assetUrl(id) {
+      const q = room ? `?room=${encodeURIComponent(room)}` : "";
+      return `/asset/${encodeURIComponent(id)}${q}`;
+    }
+
     // --- Musica di sottofondo (elemento persistente, continua tra le fasi) ---
     const bgmAudio = document.getElementById("bgmAudio");
     let bgmList = [], bgmIndex = 0;
@@ -132,7 +138,7 @@
     function startBgm(list) { if (!list || !list.length) return; bgmList = list; if (!bgmAudio.src) { bgmIndex = 0; playBgm(); } }
     function playBgm() {
       const tr = bgmList[bgmIndex]; if (!tr) return;
-      bgmAudio.src = `/asset/${encodeURIComponent(tr.id)}`;
+      bgmAudio.src = assetUrl(tr.id);
       document.getElementById("bgmTitle").textContent = "♪ " + (tr.title || "");
       bgmAudio.play().then(updateBgmBtn).catch(updateBgmBtn);
     }
@@ -202,7 +208,7 @@
       if (msg.kind === "media") {
         let media;
         if (msg.assetId) {
-          const src = `/asset/${encodeURIComponent(msg.assetId)}`;
+          const src = assetUrl(msg.assetId);
           if (msg.mediaKind === "MUSIC") media = `<audio controls autoplay src="${src}"></audio>`;
           else if (msg.mediaKind === "VIDEO") media = `<video controls autoplay playsinline style="max-width:82vw;max-height:66vh;border-radius:16px" src="${src}"></video>`;
           else media = `<img src="${src}" alt="" style="max-width:82vw;max-height:66vh;border-radius:16px" />`;
