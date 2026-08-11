@@ -125,6 +125,17 @@ class QuestionnaireSession(override val room: RoomDefinition) : GameSession {
         finished?.let { onFinish?.invoke(it) }
     }
 
+    override fun snapshotResult(): MatchResult? {
+        if (phase == RoomPhase.LOBBY || index < 0) return null
+        // Il questionario non ha classifica: registra comunque la partita nello storico.
+        return MatchResult(
+            id = java.util.UUID.randomUUID().toString(),
+            roomTitle = room.meta.title,
+            playedAtEpochMs = System.currentTimeMillis(),
+            finalStandings = emptyList(),
+        )
+    }
+
     override suspend fun lock() {
         timerJob?.cancel()
         val msg = mutex.withLock {

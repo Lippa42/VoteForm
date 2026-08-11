@@ -1,27 +1,34 @@
 package it.marcolipparini.sfide.app
 
+import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedButton
@@ -32,25 +39,31 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.content.Context
 import it.marcolipparini.sfide.engine.model.MediaAsset
 import it.marcolipparini.sfide.engine.model.MediaKind
 import it.marcolipparini.sfide.engine.model.RoomDefinition
-import sh.calvin.reorderable.ReorderableItem
-import sh.calvin.reorderable.rememberReorderableLazyListState
+import kotlinx.coroutines.launch
 import java.io.File
 import java.util.UUID
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * Builder "a presentazione": la serata è un **mazzo di slide** scorrevoli come in
+ * PowerPoint. La prima slide è la copertina (impostazioni della stanza), poi una
+ * slide per fase. Si naviga col carosello e con la filmstrip in basso; ogni slide
+ * si riordina con le frecce, si duplica-per-tipo dall'aggiunta e si elimina.
+ */
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun TimelineBuilderScreen(
     onCancel: () -> Unit,
@@ -66,6 +79,11 @@ fun TimelineBuilderScreen(
     val segments = remember {
         mutableStateListOf(SegmentDraft(SegmentType.TITLE), SegmentDraft(SegmentType.QUIZ), SegmentDraft(SegmentType.FINAL))
     }
+    var showAdd by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+    // Pagine del mazzo: copertina (0) + una per fase.
+    val pagerState = rememberPagerState(pageCount = { segments.size + 1 })
 
     fun current(): RoomDefinition =
         buildTimelineRoom(title, pin, palettes[paletteIndex], competitors, segments, assets)
@@ -81,120 +99,302 @@ fun TimelineBuilderScreen(
         }
     }
 
-    val lazyListState = rememberLazyListState()
-    val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
-        val f = segments.indexOfFirst { it.id == from.key }
-        val t = segments.indexOfFirst { it.id == to.key }
-        if (f >= 0 && t >= 0) segments.add(t, segments.removeAt(f))
+    fun goTo(page: Int) = scope.launch { pagerState.animateScrollToPage(page) }
+
+    fun insert(type: SegmentType) {
+        val p = pagerState.currentPage
+        val at = (if (p == 0) 0 else p).coerceAtMost(segments.size)
+        segments.add(at, SegmentDraft(type))
+        showAdd = false
+        goTo(at + 1)
     }
 
-    LazyColumn(
-        state = lazyListState,
-        modifier = Modifier.fillMaxSize().padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onCancel) { Text("← Indietro") }
-                Text("Timeline della serata", color = Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-        item { TField(title, { title = it }, "Titolo della stanza") }
-        item { TField(pin, { pin = it }, "PIN") }
-        item {
-            Label("Tema")
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                palettes.forEachIndexed { i, p ->
-                    Box(
-                        Modifier.size(38.dp).clip(CircleShape)
-                            .background(Color(android.graphics.Color.parseColor(p.primary)))
-                            .border(if (paletteIndex == i) 3.dp else 1.dp, if (paletteIndex == i) Ink else Line, CircleShape)
-                            .clickable { paletteIndex = i },
-                    )
-                }
-            }
-        }
-        item {
-            Label("Concorrenti")
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                competitors.forEachIndexed { i, c ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TField(c.name, { c.name = it }, "Concorrente ${i + 1}", Modifier.weight(1f))
-                        if (competitors.size > 1) OutlinedButton(onClick = { competitors.removeAt(i) }) { Text("×") }
-                    }
-                }
-                OutlinedButton(onClick = { competitors.add(CompetitorDraft()) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("+ Concorrente")
-                }
-            }
-        }
-        item { Label("Fasi — trascina l'impugnatura ⠿ per riordinare") }
+    fun move(idx: Int, delta: Int) {
+        val target = idx + delta
+        if (target < 0 || target >= segments.size) return
+        segments.add(target, segments.removeAt(idx))
+        goTo(target + 1)
+    }
 
-        items(segments, key = { it.id }) { seg ->
-            ReorderableItem(reorderState, key = seg.id) { _ ->
-                SegmentCard(
+    fun removeAt(idx: Int) {
+        if (segments.size <= 1) return
+        segments.removeAt(idx)
+        goTo((idx + 1).coerceAtMost(segments.size))
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        // ---- Barra superiore -------------------------------------------------
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            OutlinedButton(onClick = onCancel) { Text("←") }
+            Column(Modifier.weight(1f)) {
+                Text("Costruisci la serata", color = Accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                val label = if (pagerState.currentPage == 0) "Copertina" else "Fase ${pagerState.currentPage} di ${segments.size}"
+                Text(label, color = InkSoft, fontSize = 12.sp)
+            }
+            Text("${pagerState.currentPage + 1}/${segments.size + 1}", color = InkSoft, fontSize = 13.sp)
+        }
+
+        // ---- Il mazzo di slide (carosello) -----------------------------------
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            pageSpacing = 10.dp,
+        ) { page ->
+            if (page == 0) {
+                CoverSlide(
+                    title = title, onTitle = { title = it },
+                    pin = pin, onPin = { pin = it },
+                    paletteIndex = paletteIndex, onPalette = { paletteIndex = it },
+                    competitors = competitors,
+                )
+            } else {
+                val idx = page - 1
+                val seg = segments[idx]
+                SegmentSlide(
                     seg = seg,
-                    handle = Modifier.draggableHandle(),
-                    onRemove = { if (segments.size > 1) segments.remove(seg) },
+                    number = page,
+                    isFirst = idx == 0,
+                    isLast = idx == segments.size - 1,
+                    canRemove = segments.size > 1,
+                    onMoveLeft = { move(idx, -1) },
+                    onMoveRight = { move(idx, +1) },
+                    onRemove = { removeAt(idx) },
                     onPicked = onPicked,
                 )
             }
         }
 
-        item {
-            Label("Aggiungi una fase")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SegmentType.entries.forEach { type ->
-                    OutlinedButton(onClick = { segments.add(SegmentDraft(type)) }) { Text("+ ${type.label}") }
+        // ---- Filmstrip di navigazione ---------------------------------------
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FilmChip("🎬", "Cover", selected = pagerState.currentPage == 0) { goTo(0) }
+            segments.forEachIndexed { i, s ->
+                FilmChip(iconFor(s.type), "${i + 1}", selected = pagerState.currentPage == i + 1) { goTo(i + 1) }
+            }
+            FilmChip("＋", "Fase", selected = false, accented = true) { showAdd = !showAdd }
+        }
+
+        // ---- Scelta del tipo di fase (a comparsa) ---------------------------
+        if (showAdd) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("Inserisci una fase dopo la slide corrente", color = InkSoft, fontSize = 12.sp)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SegmentType.entries.forEach { type ->
+                        OutlinedButton(onClick = { insert(type) }) { Text("${iconFor(type)} ${type.label}") }
+                    }
                 }
             }
         }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = { onSaveTemplate(current()) }, modifier = Modifier.fillMaxWidth()) { Text("💾 Salva come template") }
-                Button(onClick = { onStart(current()) }, modifier = Modifier.fillMaxWidth()) { Text("▶ Avvia ora") }
+
+        // ---- Azioni ----------------------------------------------------------
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            OutlinedButton(onClick = { onSaveTemplate(current()) }, modifier = Modifier.weight(1f)) { Text("💾 Salva") }
+            Button(onClick = { onStart(current()) }, modifier = Modifier.weight(1f)) { Text("▶ Avvia ora") }
+        }
+    }
+}
+
+// ---- Slide di copertina (impostazioni della stanza) -------------------------
+
+@Composable
+private fun CoverSlide(
+    title: String, onTitle: (String) -> Unit,
+    pin: String, onPin: (String) -> Unit,
+    paletteIndex: Int, onPalette: (Int) -> Unit,
+    competitors: MutableList<CompetitorDraft>,
+) {
+    SlideFrame(accent = Accent) {
+        SlideHeader(icon = "🎬", kicker = "COPERTINA", name = "Impostazioni della serata")
+        TField(title, onTitle, "Titolo della stanza")
+        TField(pin, onPin, "PIN d'ingresso")
+
+        Label("Tema")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            palettes.forEachIndexed { i, p ->
+                Box(
+                    Modifier.size(40.dp).clip(CircleShape)
+                        .background(Color(android.graphics.Color.parseColor(p.primary)))
+                        .border(if (paletteIndex == i) 3.dp else 1.dp, if (paletteIndex == i) Ink else Line, CircleShape)
+                        .clickable { onPalette(i) },
+                )
             }
+        }
+
+        Label("Concorrenti / squadre")
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            competitors.forEachIndexed { i, c ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TField(c.name, { c.name = it }, "Concorrente ${i + 1}", Modifier.weight(1f))
+                    if (competitors.size > 1) OutlinedButton(onClick = { competitors.removeAt(i) }) { Text("×") }
+                }
+            }
+            OutlinedButton(onClick = { competitors.add(CompetitorDraft()) }, modifier = Modifier.fillMaxWidth()) {
+                Text("+ Concorrente")
+            }
+        }
+        Text(
+            "Suggerimento: lascia i concorrenti vuoti per una serata basata solo sul pubblico (quiz/questionario).",
+            color = InkSoft, fontSize = 12.sp,
+        )
+    }
+}
+
+// ---- Slide di una fase ------------------------------------------------------
+
+@Composable
+private fun SegmentSlide(
+    seg: SegmentDraft,
+    number: Int,
+    isFirst: Boolean,
+    isLast: Boolean,
+    canRemove: Boolean,
+    onMoveLeft: () -> Unit,
+    onMoveRight: () -> Unit,
+    onRemove: () -> Unit,
+    onPicked: (SegmentDraft, Uri?) -> Unit,
+) {
+    SlideFrame(accent = Accent) {
+        // Intestazione della slide: tipo + strumenti (riordina / elimina).
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(
+                Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(Bg),
+                contentAlignment = Alignment.Center,
+            ) { Text(iconFor(seg.type), fontSize = 20.sp) }
+            Column(Modifier.weight(1f)) {
+                Text("FASE $number", color = InkSoft, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text(seg.type.label, color = Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            }
+            IconChip("◀", enabled = !isFirst, onClick = onMoveLeft)
+            IconChip("▶", enabled = !isLast, onClick = onMoveRight)
+            IconChip("🗑", enabled = canRemove, onClick = onRemove)
+        }
+
+        TField(seg.title, { seg.title = it }, "Titolo della fase")
+
+        when (seg.type) {
+            SegmentType.TITLE -> TField(seg.subtitle, { seg.subtitle = it }, "Sottotitolo")
+            SegmentType.MEDIA -> MediaBody(seg, onPicked)
+            SegmentType.QUIZ, SegmentType.QUESTIONNAIRE -> QuestionsEditor(seg, quiz = seg.type == SegmentType.QUIZ)
+            SegmentType.VOTING, SegmentType.TOURNAMENT -> PromptsEditor(seg)
+            SegmentType.STANDINGS -> HintBody("Mostra la classifica intermedia dei concorrenti.")
+            SegmentType.FINAL -> HintBody("Chiude la serata con la classifica finale e il vincitore.")
         }
     }
 }
 
 @Composable
-private fun SegmentCard(seg: SegmentDraft, handle: Modifier, onRemove: () -> Unit, onPicked: (SegmentDraft, Uri?) -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Surface).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("⠿", color = InkSoft, fontSize = 22.sp, modifier = handle)
-            Text(seg.type.label, color = Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            OutlinedButton(onClick = onRemove) { Text("×") }
-        }
-        TField(seg.title, { seg.title = it }, "Titolo della fase")
-
-        when (seg.type) {
-            SegmentType.TITLE -> TField(seg.subtitle, { seg.subtitle = it }, "Sottotitolo")
-            SegmentType.MEDIA -> {
-                TField(seg.subtitle, { seg.subtitle = it }, "Didascalia")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MediaKind.entries.forEach { k ->
-                        if (seg.mediaKind == k) {
-                            Button(onClick = { seg.mediaKind = k }) { Text(k.name) }
-                        } else {
-                            OutlinedButton(onClick = { seg.mediaKind = k }) { Text(k.name) }
-                        }
-                    }
-                }
-                val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> onPicked(seg, uri) }
-                OutlinedButton(onClick = { picker.launch(mimeForKind(seg.mediaKind)) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (seg.assetId != null) "File caricato ✓ — cambia" else "Scegli file dal dispositivo")
-                }
+private fun MediaBody(seg: SegmentDraft, onPicked: (SegmentDraft, Uri?) -> Unit) {
+    TField(seg.subtitle, { seg.subtitle = it }, "Didascalia")
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        MediaKind.entries.forEach { k ->
+            if (seg.mediaKind == k) {
+                Button(onClick = { seg.mediaKind = k }) { Text(k.name) }
+            } else {
+                OutlinedButton(onClick = { seg.mediaKind = k }) { Text(k.name) }
             }
-            SegmentType.QUIZ, SegmentType.QUESTIONNAIRE -> QuestionsEditor(seg, quiz = seg.type == SegmentType.QUIZ)
-            SegmentType.VOTING, SegmentType.TOURNAMENT -> PromptsEditor(seg)
-            SegmentType.STANDINGS, SegmentType.FINAL -> Unit
+        }
+    }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> onPicked(seg, uri) }
+    OutlinedButton(onClick = { picker.launch(mimeForKind(seg.mediaKind)) }, modifier = Modifier.fillMaxWidth()) {
+        Text(if (seg.assetId != null) "File caricato ✓ — cambia" else "Scegli file dal dispositivo")
+    }
+}
+
+@Composable
+private fun HintBody(text: String) {
+    Box(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Bg).padding(16.dp),
+    ) { Text(text, color = InkSoft, fontSize = 13.sp) }
+}
+
+// ---- Cornice comune "slide" -------------------------------------------------
+
+@Composable
+private fun SlideFrame(accent: Color, content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).background(Surface).border(1.dp, Line, RoundedCornerShape(18.dp)),
+    ) {
+        // Striscia accent in alto: dà il "colore" della slide come in una presentazione.
+        Box(Modifier.fillMaxWidth().height(6.dp).background(accent))
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) { content() }
+    }
+}
+
+@Composable
+private fun SlideHeader(icon: String, kicker: String, name: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(
+            Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(Bg),
+            contentAlignment = Alignment.Center,
+        ) { Text(icon, fontSize = 20.sp) }
+        Column {
+            Text(kicker, color = InkSoft, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Text(name, color = Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
+
+// ---- Filmstrip & pulsanti ---------------------------------------------------
+
+@Composable
+private fun FilmChip(icon: String, label: String, selected: Boolean, accented: Boolean = false, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) Accent else Surface)
+            .border(1.dp, if (selected || accented) Accent else Line, RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(icon, fontSize = 18.sp)
+        Text(label, color = if (selected) Bg else InkSoft, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun IconChip(icon: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(38.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Bg)
+            .border(1.dp, Line, RoundedCornerShape(10.dp))
+            .alpha(if (enabled) 1f else 0.35f)
+            .clickable(enabled = enabled) { onClick() },
+        contentAlignment = Alignment.Center,
+    ) { Text(icon, fontSize = 16.sp) }
+}
+
+private fun iconFor(type: SegmentType): String = when (type) {
+    SegmentType.TITLE -> "🏷️"
+    SegmentType.MEDIA -> "🖼️"
+    SegmentType.STANDINGS -> "📊"
+    SegmentType.QUIZ -> "❓"
+    SegmentType.VOTING -> "⭐"
+    SegmentType.TOURNAMENT -> "🏆"
+    SegmentType.QUESTIONNAIRE -> "🗳️"
+    SegmentType.FINAL -> "🎉"
+}
+
+// ---- Editor riusati ---------------------------------------------------------
 
 @Composable
 private fun QuestionsEditor(seg: SegmentDraft, quiz: Boolean) {

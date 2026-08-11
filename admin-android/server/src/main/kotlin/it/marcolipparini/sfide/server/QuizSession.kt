@@ -149,6 +149,18 @@ class QuizSession(override val room: RoomDefinition) : GameSession {
         finished?.let { onFinish?.invoke(it) }
     }
 
+    override fun snapshotResult(): MatchResult? {
+        if (phase == RoomPhase.LOBBY || players.isEmpty()) return null
+        val s = computeStandings()
+        return MatchResult(
+            id = java.util.UUID.randomUUID().toString(),
+            roomTitle = room.meta.title,
+            playedAtEpochMs = System.currentTimeMillis(),
+            finalStandings = s,
+            winnerLabel = s.firstOrNull()?.competitorId?.let { players[it]?.name },
+        )
+    }
+
     override suspend fun lock() {
         timerJob?.cancel()
         val msg = mutex.withLock {

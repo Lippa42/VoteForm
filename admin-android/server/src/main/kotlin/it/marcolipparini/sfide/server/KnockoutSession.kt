@@ -145,6 +145,11 @@ class KnockoutSession(override val room: RoomDefinition) : GameSession {
         )
     }
 
+    override fun snapshotResult(): MatchResult? {
+        if (phase == RoomPhase.LOBBY) return null
+        return buildResult()
+    }
+
     override suspend fun lock() {
         val msg = mutex.withLock {
             if (phase != RoomPhase.INPUT) return

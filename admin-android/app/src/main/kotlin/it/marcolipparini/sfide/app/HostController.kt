@@ -4,6 +4,7 @@ import android.content.Context
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
+import it.marcolipparini.sfide.engine.history.MatchResult
 import it.marcolipparini.sfide.engine.model.GameModeConfig
 import it.marcolipparini.sfide.engine.model.RoomDefinition
 import it.marcolipparini.sfide.engine.samples.SampleRooms
@@ -41,6 +42,12 @@ object HostController {
     private var engine: ApplicationEngine? = null
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** Store dello storico (creato all'avvio) e guardia anti-doppio-salvataggio. */
+    private var store: SfideStore? = null
+
+    @Volatile
+    private var resultSaved = false
+
     /** URL WebSocket del relay per spettatori da remoto (vuoto = solo LAN). */
     @Volatile
     var relayUrl: String? = null
@@ -58,11 +65,13 @@ object HostController {
         port: Int = DEFAULT_PORT,
     ) {
         if (engine != null) return
+        resultSaved = false
         val gameSession = sessionFor(room)
         session = gameSession
         // A fine partita salva il risultato nello storico locale.
-        val store = SfideStore(context.applicationContext)
-        gameSession.onFinish = { result -> ioScope.launch { store.saveResult(result) } }
+        val localStore = SfideStore(context.applicationContext)
+        store = localStore
+        gameSession.onFinish = { result -> persistResult(result) }
         val webAssets = context.applicationContext.assets
         val assetResolver = RoomAssetResolver(room)
         engine = embeddedServer(CIO, port = port, host = "0.0.0.0") {
@@ -88,9 +97,20 @@ object HostController {
     }
 
     fun stop() {
+        // Salva lo storico anche se la partita non è arrivata all'ultima fase.
+        session?.snapshotResult()?.let { persistResult(it) }
         engine?.stop(gracePeriodMillis = 300, timeoutMillis = 1000)
         engine = null
         session = null
+        store = null
         _state.value = _state.value.copy(running = false)
+    }
+
+    /** Salva il risultato una sola volta per partita (onFinish e stop possono coincidere). */
+    private fun persistResult(result: MatchResult) {
+        if (resultSaved) return
+        resultSaved = true
+        val target = store ?: return
+        ioScope.launch { target.saveResult(result) }
     }
 }

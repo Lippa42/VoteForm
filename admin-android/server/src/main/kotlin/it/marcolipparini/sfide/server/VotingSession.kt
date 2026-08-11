@@ -151,6 +151,19 @@ class VotingSession(override val room: RoomDefinition) : GameSession {
         finished?.let { onFinish?.invoke(it) }
     }
 
+    override fun snapshotResult(): MatchResult? {
+        if (phase == RoomPhase.LOBBY || index < 0) return null
+        val s = computeStandings()
+        return MatchResult(
+            id = java.util.UUID.randomUUID().toString(),
+            roomTitle = room.meta.title,
+            playedAtEpochMs = System.currentTimeMillis(),
+            finalStandings = s,
+            winnerLabel = s.firstOrNull()?.competitorId
+                ?.let { id -> room.participants.competitors.firstOrNull { it.id == id }?.name },
+        )
+    }
+
     override suspend fun lock() {
         timerJob?.cancel()
         val msg = mutex.withLock {

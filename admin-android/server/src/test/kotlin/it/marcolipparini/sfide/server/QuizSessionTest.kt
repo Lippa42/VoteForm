@@ -99,6 +99,28 @@ class QuizSessionTest {
     }
 
     @Test
+    fun `snapshotResult salva la classifica anche se la partita non arriva in fondo`() = runBlocking {
+        val session = QuizSession(SampleRooms.quizTournament())
+        // Prima di iniziare non c'è nulla da salvare.
+        assertEquals(null, session.snapshotResult())
+
+        val spec = Captured("s", ClientRole.SPECTATOR)
+        session.addConnection(spec.conn)
+        session.onIntent(spec.conn, intent(ClientIntent.Join(pin = "4291", name = "Ada", role = ClientRole.SPECTATOR)))
+
+        session.next()
+        session.onIntent(spec.conn, intent(ClientIntent.SubmitAnswer(turnId = "q1", optionIds = listOf("b"))))
+        session.reveal()
+
+        // L'host ferma la stanza senza premere "Avanti" fino alla fine: il risultato
+        // corrente deve comunque essere disponibile per lo storico.
+        val snap = session.snapshotResult()
+        assertTrue(snap != null, "snapshotResult non deve essere null a partita iniziata")
+        assertEquals("Ada", snap!!.winnerLabel)
+        assertEquals(100.0, snap.finalStandings.first { it.competitorId == "s" }.points)
+    }
+
+    @Test
     fun `il timer chiude automaticamente le risposte allo scadere`() = runBlocking {
         val room = RoomDefinition(
             meta = RoomMeta(title = "Timer", pin = "1"),

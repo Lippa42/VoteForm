@@ -18,6 +18,13 @@ interface GameSession {
     /** Invocato una sola volta al termine della partita, con il risultato finale. */
     var onFinish: ((MatchResult) -> Unit)?
 
+    /**
+     * Risultato "così com'è ora", per salvare lo storico anche se l'host ferma la
+     * stanza senza arrivare in fondo (caso comune: si chiude dopo la classifica).
+     * Ritorna `null` se non c'è ancora nulla da salvare (partita non iniziata).
+     */
+    fun snapshotResult(): MatchResult? = null
+
     suspend fun addConnection(conn: Connection)
     fun removeConnection(id: String)
     suspend fun onIntent(conn: Connection, text: String)

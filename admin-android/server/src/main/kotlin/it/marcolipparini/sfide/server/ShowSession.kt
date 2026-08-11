@@ -505,14 +505,31 @@ class ShowSession(override val room: RoomDefinition) : GameSession {
         return criteria.sumOf { (values[it.id] ?: 0.0) * it.weight } / w
     }
 
+    override fun snapshotResult(): MatchResult? {
+        if (phase == RoomPhase.LOBBY) return null
+        return buildResult()
+    }
+
     private fun buildResult(): MatchResult {
-        val entries = competitorEntries()
+        // Con squadre: classifica dei concorrenti. Show incentrato sul pubblico
+        // (nessun concorrente): classifica dal punteggio degli spettatori.
+        val standings: List<Standing>
+        val winner: String?
+        if (competitors.isNotEmpty()) {
+            val entries = competitorEntries()
+            standings = entries.map { Standing(it.id, it.score, it.rank) }
+            winner = entries.firstOrNull()?.name
+        } else {
+            standings = audienceScores.entries.sortedByDescending { it.value }
+                .mapIndexed { i, e -> Standing(e.key, round2(e.value), i + 1) }
+            winner = standings.firstOrNull()?.competitorId?.let { players[it]?.name }
+        }
         return MatchResult(
             id = java.util.UUID.randomUUID().toString(),
             roomTitle = room.meta.title,
             playedAtEpochMs = System.currentTimeMillis(),
-            finalStandings = entries.map { Standing(it.id, it.score, it.rank) },
-            winnerLabel = entries.firstOrNull()?.name,
+            finalStandings = standings,
+            winnerLabel = winner,
         )
     }
 
