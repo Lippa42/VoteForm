@@ -39,6 +39,7 @@ admin-android/        app Kotlin + server Ktor embedded
   server/             Ktor: HTTP statico + WebSocket + stato di gioco       ← fetta quiz
   persistence/        Room DB: template di stanza + storico partite         ← implementato
   app/                app Android host: creazione stanza + regia Compose    ← implementato
+  desktop/            app Admin desktop (Compose for Desktop): mouse+tastiera ← implementato
 web/                  client (HTML/JS ora; Svelte + Vite in seguito)
   shared/             protocollo WS, tipi condivisi                         ← protocollo
   viewer/             vista TV                                              ← fetta quiz
@@ -80,6 +81,28 @@ pulsanti Prossima/Chiudi/Svela). Richiede l'Android SDK (`compileSdk 35`,
 ```bash
 ./gradlew :app:assembleDebug   # produce app/build/outputs/apk/debug/app-debug.apk
 ```
+
+## App Admin per desktop
+
+Oltre all'host Android c'è un **Admin per desktop** (modulo `:desktop`, Compose for
+Desktop) con le **stesse funzioni** — builder a slide, regia, storico — ma pensato
+per **mouse e tastiera**. Il computer diventa l'host: avvia lo stesso server
+embedded e serve i client web.
+
+```bash
+./gradlew :desktop:run                    # avvia l'app Admin desktop
+```
+
+Scorciatoie da tastiera:
+
+- **Builder**: `PagSù`/`PagGiù` naviga le slide · `Ctrl+←/→` sposta la fase ·
+  `Ctrl+I` aggiunge · `Ctrl+Canc` elimina · `Ctrl+S` salva template · `Ctrl+Invio` avvia.
+- **Regia**: `Spazio`/`→` avanti · `L` chiudi · `R` svela · `P` pausa/riprendi
+  musica · `N` salta traccia · `Esc` ferma la stanza.
+
+I template e lo storico sono salvati in locale in `~/.sfide/` (JSON, nessun cloud).
+Per l'eseguibile nativo: `./gradlew :desktop:packageDistributionForCurrentOS`
+(la cartella `web/` va accanto all'app oppure indicata con `SFIDE_WEB_DIR`).
 
 ## Spettatori da remoto (relay)
 

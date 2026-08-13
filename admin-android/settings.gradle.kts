@@ -32,3 +32,7 @@ include(":persistence")
 // Relay WebSocket (JVM) per spettatori da remoto: inoltra i messaggi tra host e
 // client senza contenere logica di gioco. Da deployare su un servizio economico.
 include(":relay")
+
+// App Admin per desktop (Compose for Desktop): stesse funzioni dell'app Android
+// (builder + regia + host), pensata per mouse e tastiera.
+include(":desktop")
